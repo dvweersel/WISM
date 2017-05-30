@@ -70,10 +70,10 @@ classdef AnalysisRobot < AutoTrader
 
                 stockPriceData(t) = StockPrice(bidData(t),askData(t));
             end
-            subplot(2, 2, 1), plot(xData, bidData, 'b');
+            subplot(2, 1, 1), plot(xData, bidData, 'b');
             hold on
-            subplot(2, 2, 2), plot(xData, askData, 'r');
-            subplot(2, 2, 3), plot(xData, stockPriceData, 'k');
+            subplot(2, 1, 1), plot(xData, askData, 'r');
+            subplot(2, 1, 2), plot(xData, stockPriceData, 'k');
         end
         
         function PlotOptionSpread(aBot)
@@ -81,7 +81,7 @@ classdef AnalysisRobot < AutoTrader
             
             
         end
-        
+        %Dit is een test om te kijken of pushen werkt.
         function PlotOptionTime(aBot)
           
         end
