@@ -17,6 +17,7 @@ function W = BS(S, K, T, sigma, p)
     price1 = s*I1-k*I2;
     delta1 = diff(price1,s);
     gamma1 = diff(delta1,s);
+    vega1  = diff(price1,o);
     
     %creating the formulas for the price, delta and gamma by a put option
     I3= NormalDistcdf(-d2);
@@ -24,26 +25,31 @@ function W = BS(S, K, T, sigma, p)
     price2 = k*I3 - s*I4;       
     delta2 = diff(price2,s);
     gamma2 = diff(delta2,s);
+    vega2  = diff(price2,o);
     
     V=zeros(1,n);
     D=zeros(1,n);
     G=zeros(1,n);
+    Ve=zeros(1,n);
     %Now we substitute our values in the formulas
     for i=1:n
         if p(1,i)==0
             V(1,i)=subs(price1, [s k t o], [S(1,i), K(1,i), T(1,i) sigma(1,i)]);
             D(1,i)=subs(delta1, [s k t o], [S(1,i), K(1,i), T(1,i) sigma(1,i)]);
             G(1,i)=subs(gamma1, [s k t o], [S(1,i), K(1,i), T(1,i) sigma(1,i)]);
+            Ve(1,i)=subs(vega1, [s k t o], [S(1,i), K(1,i), T(1,i) sigma(1,i)]);
         elseif p(1,i)==1
             V(1,i)=subs(price2, [s k t o], [S(1,i), K(1,i), T(1,i) sigma(1,i)]);
             D(1,i)=subs(delta2, [s k t o], [S(1,i), K(1,i), T(1,i) sigma(1,i)]);
             G(1,i)=subs(gamma2, [s k t o], [S(1,i), K(1,i), T(1,i) sigma(1,i)]);
+            Ve(1,i)=subs(vega2, [s k t o], [S(1,i), K(1,i), T(1,i) sigma(1,i)]);
         end
     end
-    W=zeros(3,n);
+    W=zeros(4,n);
     W(1,:)=V(1,:);
     W(2,:)=D(1,:);
     W(3,:)=G(1,:);
+    W(4,:)=Ve(1,:);
 end
 
 %this function is used to get the integrals of the density function of the
