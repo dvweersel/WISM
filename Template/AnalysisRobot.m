@@ -33,27 +33,46 @@ classdef AnalysisRobot < AutoTrader
             %% Store the depth of the stocks
             aBot.depth.(aTime).(ISIN) = struct(aDepth);
             
-            %% Calculate the stock price if it's a stock depth update
-            
+            %% Add the stock price if it's a stock depth update
             if(strcmp(ISIN,'ING'))
-                
-                aBot.depth.(aTime).(ISIN).stockPrice = ...
-                    StockPrice(aBot.depth.(aTime).askLimitPrice, aBot.depth.(aTime).bidLimitPrice);
+                CalculateStockPrice(aBot);
             end
             
         end
         
+        %% Calculates the stock price
+        function CalculateStockPrice(aBot)
+            aTime = strcat('t', num2str(aBot.time));
+            
+            if(isempty(aBot.depth.(aTime).ING.askLimitPrice)) 
+                askLimitPrice = []; 
+            else
+                askLimitPrice = aBot.depth.(aTime).ING.askLimitPrice;
+            end
+            
+           if(isempty(aBot.depth.(aTime).ING.bidLimitPrice)) 
+                bidLimitPrice = []; 
+           else
+                bidLimitPrice = aBot.depth.(aTime).ING.bidLimitPrice;
+           end
+            
+            aBot.depth.(aTime).ING.stockPrice = ...
+                    StockPrice(askLimitPrice, bidLimitPrice);
+        end
+
+        %% Shows some plots
         function ShowPlots(aBot)
             %% 1, 2
             PlotStock(aBot);
 
             %% 3
-            PlotOptionSpread(aBot)
-            
-            %% 4
             PlotOptionTime(aBot)
+           
+            %% 4
+            PlotOptionSpread(aBot)
         end
         
+        %% 1,2 
         function PlotStock(aBot)
             curly = @(x, varargin) x{varargin{:}};
 
@@ -78,14 +97,14 @@ classdef AnalysisRobot < AutoTrader
                 timeField = curly(nTime(t),1);
                 
 
-                if(~isempty(aBot.depth.(timeField).bidLimitPrice))
-                    bidData(t) = aBot.depth.(timeField).bidLimitPrice(1);     
+                if(~isempty(aBot.depth.(timeField).ING.bidLimitPrice))
+                    bidData(t) = aBot.depth.(timeField).ING.bidLimitPrice(1);     
                 else
                     bidData(t) = NaN;
                 end
 
-                if(~isempty(aBot.depth.(timeField).askLimitPrice))
-                    askData(t) = aBot.depth.(timeField).askLimitPrice(1);
+                if(~isempty(aBot.depth.(timeField).ING.askLimitPrice))
+                    askData(t) = aBot.depth.(timeField).ING.askLimitPrice(1);
                 else
                     askData(t) = NaN;
                 end
@@ -98,15 +117,38 @@ classdef AnalysisRobot < AutoTrader
             subplot(2, 1, 2), plot(xData, stockPriceData, 'k');
         end
         
-        function PlotOptionSpread(aBot)
-            TIME =  500;
+        %% 3 Plots the option prices for a certain time
+        function PlotOptionTime(aBot)
+            nOption = GetAllOptionISINs();
             
+            [~, ~, ~, K] = ParseOptionISINs(nOption);
             
+            price = zeros(length(nOption),2);
+            
+            for i = 1:length(nOption)
+                
+                optionISIN = nOption(i);
+                
+                if(isfield(aBot.depth.t101, optionISIN{1}))
+                    price(i,1) = aBot.depth.t101.(optionISIN{1}).askLimitPrice(1);
+                	price(i,2) = aBot.depth.t101.(optionISIN{1}).bidLimitPrice(1);
+                else
+                    price(i, 1) = NaN;
+                    price(i, 2) = NaN;
+                end
+            end
+            
+            figure;
+            scatter(K, price(:,1), 'r');
+            hold on
+            scatter(K, price(:,2), 'b');
         end
         
-        function PlotOptionTime(aBot)
-          
+        %% 4
+        function PlotOptionSpread(aBot)
+            
         end
+
     end
 end
 
