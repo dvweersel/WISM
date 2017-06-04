@@ -75,7 +75,7 @@ function sigma = IV(S, K, T, V, p)
     d = log(S./K); 
     
     % Convert Put to Call by Parity Relation; Eq (9)
-    V(p==0) = V(p==0) + S(p==0) - K(p==0);
+    V(p==1) = V(p==1) + S(p==1) - K(p==1);
     
     C = V./S; % Normalized Call Price
 
@@ -138,14 +138,15 @@ function sigma = IV(S, K, T, V, p)
         vomma = vommafcn(sigma,B); %f''(x_n)
         ultima = ultimafcn(sigma,B); %f'''(x_n)
 
+        test = err(B);
         % Newton Raphson Method x_n+1 = x_n + f(x_n)/f'(x_n)
-        % sigma = sigma  + (err(B)./vega) ;
+        % sigma(B) = sigma(B)  + (err(B)./vega) ;
        
         % Halley Method x_n+1 = x_n - f(x_n)/( f'(x_n) - f(x_n)*f''(x_n)/2*f'(x_n))
-        %sigma = sigma  - err(B)./(-vega-(-err(B).*vomma./(-2.*vega)));
+        sigma(B) = sigma(B)  - err(B)./(-vega-(-err(B).*vomma./(-2.*vega)));
 
         % Householder Method x_n+1 = x_n - f(x_n)/( f'(x_n) - f(x_n)*f''(x_n)/2*f'(x_n))
-        sigma(B) = sigma(B) - (6.*err(B).*vega.^2 + 3.*err(B).^2.*vomma)./(-6.*vega.^3 - 6.*err(B).*vega.*vomma - err(B).^2.*ultima);
+        % sigma(B) = sigma(B) - (6.*err(B).*vega.^2 + 3.*err(B).^2.*vomma)./(-6.*vega.^3 - 6.*err(B).*vega.*vomma - err(B).^2.*ultima);
 
         % Update Error
         err(B) = difffcn(sigma,B); 
