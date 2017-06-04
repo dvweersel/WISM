@@ -62,10 +62,6 @@ classdef AnalysisRobot < AutoTrader
 
         %% Shows some plots
         function ShowPlots(aBot)
-            
-            %% Close all the old figures
-            close all;
-             
             %% 1, 2
             PlotStock(aBot);
 
@@ -78,6 +74,8 @@ classdef AnalysisRobot < AutoTrader
         
         %% 1,2 
         function PlotStock(aBot)
+            curly = @(x, varargin) x{varargin{:}};
+
             %% Plot of the bid, ask and stock price
             figure;
 
@@ -120,23 +118,9 @@ classdef AnalysisRobot < AutoTrader
         end
         
         %% 3 Plots the option prices for a certain time
-        function PlotOptionTime(aBot)          
+        function PlotOptionTime(aBot)
             %% Determine the depth with the largest number of options
-            times = fieldnames(aBot.depth);
-            
-            k = 0;
-            kField = 0;
-            for t = times'
-                
-                tField = t{1};  
-                numberOfOptions = length(fieldnames(aBot.depth.(tField)));
-                
-                if(numberOfOptions > k)
-
-                    k = numberOfOptions;
-                    kField = tField;
-                end
-            end
+            fieldsnames
             
             nOption = GetAllOptionISINs();
             
@@ -146,47 +130,29 @@ classdef AnalysisRobot < AutoTrader
             
             for i = 1:length(nOption)
                 
-                iOption = curly(nOption(i), 1);
+                optionISIN = nOption(i);
                 
-                if(isfield(aBot.depth.(kField), iOption))
-                    if(~isempty(aBot.depth.(kField).(iOption).askLimitPrice))
-                        price(i,1) = aBot.depth.(kField).(iOption).askLimitPrice(1);
-                    else
-                        price(i,1) = NaN;
-                    end
-                    
-                    if(~isempty(aBot.depth.(kField).(iOption).bidLimitPrice))
-                        price(i,2) = aBot.depth.(kField).(iOption).bidLimitPrice(1);
-                    else
-                        price(i,2) = NaN;
-                    end
-                	
+                if(isfield(aBot.depth.t101, optionISIN{1}))
+                    price(i,1) = aBot.depth.t101.(optionISIN{1}).askLimitPrice(1);
+                	price(i,2) = aBot.depth.t101.(optionISIN{1}).bidLimitPrice(1);
                 else
                     price(i, 1) = NaN;
                     price(i, 2) = NaN;
                 end
             end
             
-            figure
+            figure;
             scatter(K, price(:,1), 'r');
             hold on
             scatter(K, price(:,2), 'b');
-            title(tField);
-            xlabel('Strike price')
-            ylabel('Price')
-            hold off
         end
         
         %% 4
         function PlotOptionSpread(aBot)
             
         end
+
     end
-end
-
-
-function varargout = curly(x, varargin)
-    [varargout{1:nargout}] = x{varargin{:}};
 end
 
 
