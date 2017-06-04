@@ -12,15 +12,15 @@ classdef AnalysisRobot < AutoTrader
             %% Store the available option ISINs
             if(aBot.time == 0)
                 nOption = GetAllOptionISINs();
-                            
+                
                 [~, T, p, K] = ParseOptionISINs(nOption);
                 
                 T = (T - now())/DAYS_IN_YEARS;
-                                
+                
                 aBot.optionISIN = struct('ISIN', [], 'T', T, 'p', p, 'K', K);
                 
                 aBot.optionISIN.ISIN = nOption;
-            end       
+            end
             
             %% Update time if its a stock depth update
             ISIN = aDepth.ISIN;
@@ -34,7 +34,7 @@ classdef AnalysisRobot < AutoTrader
             aBot.depth.(aTime).(ISIN) = struct(aDepth);
             
             %% Calculate the stock price if it's a stock depth update and else the option depth
-            if(strcmp(ISIN,'ING'))                
+            if(strcmp(ISIN,'ING'))
                 aBot.depth.(aTime).(ISIN).stockPrice = ...
                     StockPrice(aBot.depth.(aTime).(ISIN).askLimitPrice, aBot.depth.(aTime).(ISIN).bidLimitPrice);
             end
@@ -52,7 +52,7 @@ classdef AnalysisRobot < AutoTrader
                     end
                 end
             end
-
+            
         end
         
         %% Shows some plots
@@ -62,21 +62,21 @@ classdef AnalysisRobot < AutoTrader
             close all;
             
             %% 1, 2
-
-%            PlotStock(aBot);
+            
+            %            PlotStock(aBot);
             
             %% 3
-%            PlotOptionSpread(aBot)
+            %            PlotOptionSpread(aBot)
             
             %% 4
-%            PlotOptionTime(aBot)
+            %            PlotOptionTime(aBot)
             
             %% 5
             PlotOptionIVs(aBot);
             
-            %% 6 
-%            PlotGreeks(aBot);
-
+            %% 6
+            %            PlotGreeks(aBot);
+            
         end
         
         %% 1,2 Plot of the bid, ask and stock price
@@ -99,10 +99,10 @@ classdef AnalysisRobot < AutoTrader
                 
                 timeField = curly(nTime(t),1);
                 
-
+                
                 if(~isempty(aBot.depth.(timeField).bidLimitPrice))
-                    bidData(t) = aBot.depth.(timeField).bidLimitPrice(1);     
-
+                    bidData(t) = aBot.depth.(timeField).bidLimitPrice(1);
+                    
                 else
                     bidData(t) = NaN;
                 end
@@ -115,7 +115,7 @@ classdef AnalysisRobot < AutoTrader
                 
                 stockPriceData(t) = StockPrice(bidData(t),askData(t));
             end
-
+            
             subplot(2, 1, 1), plot(xData, bidData, 'b');
             hold on
             subplot(2, 1, 1), plot(xData, askData, 'r');
@@ -129,7 +129,7 @@ classdef AnalysisRobot < AutoTrader
             lastTime = str2double(lastTimeString(2:end));
             
             optionNumber=length(aBot.optionISIN.ISIN);
- 
+            
             plotTime = 101;
             optionIV1 = zeros(lastTime,optionNumber);
             optionIV2 = zeros(lastTime,optionNumber);
@@ -138,10 +138,10 @@ classdef AnalysisRobot < AutoTrader
                 for k=1:optionNumber
                     if (isfield(aBot.depth.(timeField),aBot.optionISIN.ISIN(k)) && aBot.depth.(timeField).('ING').optionPrice(k,1) ~= 0)
                         optionIV1(t,k)=IV(aBot.depth.(timeField).('ING').stockPrice, ...
-                                          aBot.optionISIN.K(k),...
-                                          aBot.optionISIN.T(k),...
-                                          aBot.depth.(timeField).('ING').optionPrice(k,1),...
-                                          aBot.optionISIN.p(k));
+                            aBot.optionISIN.K(k),...
+                            aBot.optionISIN.T(k),...
+                            aBot.depth.(timeField).('ING').optionPrice(k,1),...
+                            aBot.optionISIN.p(k));
                     else
                         optionIV1(t,k)=NaN;
                     end
@@ -153,10 +153,10 @@ classdef AnalysisRobot < AutoTrader
                 for k=1:optionNumber
                     if (isfield(aBot.depth.(timeField),aBot.optionISIN.ISIN(k)) && aBot.depth.(timeField).('ING').optionPrice(k,2) ~= 0)
                         optionIV2(t,k)=IV(aBot.depth.(timeField).('ING').stockPrice, ...
-                                          aBot.optionISIN.K(k),...
-                                          aBot.optionISIN.T(k),...
-                                          aBot.depth.(timeField).('ING').optionPrice(k,2),...
-                                          aBot.optionISIN.p(k));
+                            aBot.optionISIN.K(k),...
+                            aBot.optionISIN.T(k),...
+                            aBot.depth.(timeField).('ING').optionPrice(k,2),...
+                            aBot.optionISIN.p(k));
                     else
                         optionIV2(t,k)=NaN;
                     end
@@ -168,7 +168,7 @@ classdef AnalysisRobot < AutoTrader
             hold on
             scatter(aBot.optionISIN.K,optionIV2(plotTime,:))
             hold off
-
+            
             title('The implied volatilities of the options at the plotTime')
             xlabel('Strike prices of options')
             ylabel('Implied volatilities of options')
@@ -184,9 +184,9 @@ classdef AnalysisRobot < AutoTrader
             end
             suptitle('The implied volatilities of the options over time for each strike price')
         end
-
-     
-
+        
+        
+        
         function PlotGreeks(aBot)
             curly = @(x, varargin) x{varargin{:}};
             nTime = fieldnames(aBot.depth);
@@ -202,10 +202,10 @@ classdef AnalysisRobot < AutoTrader
                 for k=1:N
                     optionISINName = aBot.optionISIN.ISIN(k);
                     optionIV2(t,k) = IV(aBot.depth.(timeField).('ING').stockPrice, ...
-                                        aBot.optionISIN.K(k),...
-                                        aBot.optionISIN.T(k),...
-                                        aBot.depth.(timeField).(optionISINName{1}).optionPrice(k),...
-                                        aBot.optionISIN.p(k));                    
+                        aBot.optionISIN.K(k),...
+                        aBot.optionISIN.T(k),...
+                        aBot.depth.(timeField).(optionISINName{1}).optionPrice(k),...
+                        aBot.optionISIN.p(k));
                 end
             end
             
@@ -219,10 +219,10 @@ classdef AnalysisRobot < AutoTrader
                 optionVegas(t) = zeros(1,N);
                 for k=1:N
                     BSM = BS(aBot.depth.(timeField).('ING').stockPrice, ...
-                            aBot.optionISIN.K(k),...
-                            aBot.optionISIN.T(k),...
-                            optionIV2(t,k),...
-                            aBot.optionISIN.p(k));   
+                        aBot.optionISIN.K(k),...
+                        aBot.optionISIN.T(k),...
+                        optionIV2(t,k),...
+                        aBot.optionISIN.p(k));
                     optionDeltas(t,k)=BSM(2,1);
                     optionGammas(t,k)=BSM(3,1);
                     optionVegas(t,k)=BSM(4,1);
@@ -230,26 +230,26 @@ classdef AnalysisRobot < AutoTrader
             end
             
             for k=1:N
-               t=1:lastTime;
-               subplot(3,1,1)
-               plot(optionDeltas(t,k),t)
-               hold on
+                t=1:lastTime;
+                subplot(3,1,1)
+                plot(optionDeltas(t,k),t)
+                hold on
             end
             hold off
             
             for k=1:N
-               t=1:lastTime;
-               subplot(3,1,2)
-               plot(optionGammas(t,k),t)
-               hold on
+                t=1:lastTime;
+                subplot(3,1,2)
+                plot(optionGammas(t,k),t)
+                hold on
             end
             hold off
             
             for k=1:N
-               t=1:lastTime;
-               subplot(3,1,3)
-               plot(optionVegas(t,k),t)
-               hold on
+                t=1:lastTime;
+                subplot(3,1,3)
+                plot(optionVegas(t,k),t)
+                hold on
             end
             hold off
         end
@@ -258,5 +258,5 @@ end
 
 %% Help function
 function varargout = curly(x, varargin)
-    [varargout{1:nargout}] = x{varargin{:}};
+[varargout{1:nargout}] = x{varargin{:}};
 end
