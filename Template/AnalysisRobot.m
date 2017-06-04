@@ -12,15 +12,15 @@ classdef AnalysisRobot < AutoTrader
             %% Store the available option ISINs
             if(aBot.time == 0)
                 nOption = GetAllOptionISINs();
-                
+                            
                 [~, T, p, K] = ParseOptionISINs(nOption);
                 
                 T = (T - now())/DAYS_IN_YEARS;
-                
+                                
                 aBot.optionISIN = struct('ISIN', [], 'T', T, 'p', p, 'K', K);
                 
                 aBot.optionISIN.ISIN = nOption;
-            end
+            end       
             
             %% Update time if its a stock depth update
             ISIN = aDepth.ISIN;
@@ -33,11 +33,26 @@ classdef AnalysisRobot < AutoTrader
             %% Store the depth of the stocks
             aBot.depth.(aTime).(ISIN) = struct(aDepth);
             
-            %% Add the stock price if it's a stock depth update
-            if(strcmp(ISIN,'ING'))
-                CalculateStockPrice(aBot);
+            %% Calculate the stock price if it's a stock depth update and else the option depth
+            if(strcmp(ISIN,'ING'))                
+                aBot.depth.(aTime).(ISIN).stockPrice = ...
+                    StockPrice(aBot.depth.(aTime).(ISIN).askLimitPrice, aBot.depth.(aTime).(ISIN).bidLimitPrice);
             end
             
+            aBot.depth.(aTime).('ING').optionPrice = zeros(length(aBot.optionISIN.ISIN),2);
+            
+            ISINNames= fieldnames(aBot.depth.(aTime));
+            for i=1:length(ISINNames)
+                ISINName=ISINNames(i);
+                for k=1:length(aBot.optionISIN.ISIN)
+                    optionISINName = aBot.optionISIN.ISIN(k);
+                    if strcmp(aBot.depth.(aTime).(ISINName{1}).ISIN,optionISINName{1})
+                        aBot.depth.(aTime).('ING').optionPrice(k,1) = aBot.depth.(aTime).(ISINName{1}).askLimitPrice;
+                        aBot.depth.(aTime).('ING').optionPrice(k,2) = aBot.depth.(aTime).(ISINName{1}).bidLimitPrice;
+                    end
+                end
+            end
+
         end
         
         %% Shows some plots
@@ -47,23 +62,21 @@ classdef AnalysisRobot < AutoTrader
             close all;
             
             %% 1, 2
-            PlotStock(aBot);
+
+%            PlotStock(aBot);
             
             %% 3
-            PlotOptionSpread(aBot);
+%            PlotOptionSpread(aBot)
             
             %% 4
-            PlotOptionTime(aBot);
+%            PlotOptionTime(aBot)
             
             %% 5
-            PlotOptionIV1(aBot);
+            PlotOptionIVs(aBot);
             
-            %% 6
-            PlotOptionIV2(aBot);
-            
-            %% 7
-            PlotGreeks(aBot);
-            
+            %% 6 
+%            PlotGreeks(aBot);
+
         end
         
         %% 1,2 Plot of the bid, ask and stock price
@@ -86,9 +99,10 @@ classdef AnalysisRobot < AutoTrader
                 
                 timeField = curly(nTime(t),1);
                 
-                
-                if(~isempty(aBot.depth.(timeField).ING.bidLimitPrice))
-                    bidData(t) = aBot.depth.(timeField).ING.bidLimitPrice(1);
+
+                if(~isempty(aBot.depth.(timeField).bidLimitPrice))
+                    bidData(t) = aBot.depth.(timeField).bidLimitPrice(1);     
+
                 else
                     bidData(t) = NaN;
                 end
@@ -101,176 +115,80 @@ classdef AnalysisRobot < AutoTrader
                 
                 stockPriceData(t) = StockPrice(bidData(t),askData(t));
             end
-            
-            % Plot everything
-            figure;
+
             subplot(2, 1, 1), plot(xData, bidData, 'b');
             hold on
             subplot(2, 1, 1), plot(xData, askData, 'r');
             subplot(2, 1, 2), plot(xData, stockPriceData, 'k');
         end
         
-        %% 3 Plots the option prices for a certain time
-        function PlotOptionTime(aBot)
-            %% Determine the depth with the largest number of options
-            times = fieldnames(aBot.depth);
+        function PlotOptionIVs(aBot)
+            curly = @(x, varargin) x{varargin{:}};
+            nTime = fieldnames(aBot.depth);
+            lastTimeString = curly(nTime(end),1);
+            lastTime = str2double(lastTimeString(2:end));
             
-            % We store the time with the largest amount of options
-            k = 0;
-            kField = 0;
-            for t = times'
-                
-                tField = t{1};
-                numberOfOptions = length(fieldnames(aBot.depth.(tField)));
-                
-                if(numberOfOptions > k)
-                    
-                    k = numberOfOptions;
-                    kField = tField;
+            optionNumber=length(aBot.optionISIN.ISIN);
+ 
+            plotTime = 101;
+            optionIV1 = zeros(lastTime,optionNumber);
+            optionIV2 = zeros(lastTime,optionNumber);
+            for t=1:lastTime
+                timeField = curly(nTime(t),1);
+                for k=1:optionNumber
+                    if (isfield(aBot.depth.(timeField),aBot.optionISIN.ISIN(k)) && aBot.depth.(timeField).('ING').optionPrice(k,1) ~= 0)
+                        optionIV1(t,k)=IV(aBot.depth.(timeField).('ING').stockPrice, ...
+                                          aBot.optionISIN.K(k),...
+                                          aBot.optionISIN.T(k),...
+                                          aBot.depth.(timeField).('ING').optionPrice(k,1),...
+                                          aBot.optionISIN.p(k));
+                    else
+                        optionIV1(t,k)=NaN;
+                    end
                 end
             end
             
-            % All the ISIN's and strike prices
-            nOption = aBot.optionISIN.ISIN;
-            K = aBot.optionISIN.K;
-            
-            price = zeros(length(nOption),2);
-            
-            % Loop through the options
-            for i = 1:length(nOption)
-                
-                iOption = curly(nOption(i), 1);
-                
-                % If the ask/bid exists, store it. Otherwise NaN
-                if(isfield(aBot.depth.(kField), iOption))
-                    if(~isempty(aBot.depth.(kField).(iOption).askLimitPrice))
-                        price(i,1) = aBot.depth.(kField).(iOption).askLimitPrice(1);
+            for t=1:lastTime
+                timeField = curly(nTime(t),1);
+                for k=1:optionNumber
+                    if (isfield(aBot.depth.(timeField),aBot.optionISIN.ISIN(k)) && aBot.depth.(timeField).('ING').optionPrice(k,2) ~= 0)
+                        optionIV2(t,k)=IV(aBot.depth.(timeField).('ING').stockPrice, ...
+                                          aBot.optionISIN.K(k),...
+                                          aBot.optionISIN.T(k),...
+                                          aBot.depth.(timeField).('ING').optionPrice(k,2),...
+                                          aBot.optionISIN.p(k));
                     else
-                        price(i,1) = NaN;
+                        optionIV2(t,k)=NaN;
                     end
-                    
-                    if(~isempty(aBot.depth.(kField).(iOption).bidLimitPrice))
-                        price(i,2) = aBot.depth.(kField).(iOption).bidLimitPrice(1);
-                    else
-                        price(i,2) = NaN;
-                    end
-                    
-                else
-                    price(i, 1) = NaN;
-                    price(i, 2) = NaN;
                 end
             end
             
-            % Plot everything
             figure
-            scatter(K, price(:,1), 'r');
+            scatter(aBot.optionISIN.K,optionIV1(plotTime,:))
             hold on
-            scatter(K, price(:,2), 'b');
-            title(tField);
-            xlabel('Strike price')
-            ylabel('Price')
+            scatter(aBot.optionISIN.K,optionIV2(plotTime,:))
             hold off
-        end
-        
-        %% 4
-        function PlotOptionSpread(aBot)
-            times = fieldnames(aBot.depth);
+
+            title('The implied volatilities of the options at the plotTime')
+            xlabel('Strike prices of options')
+            ylabel('Implied volatilities of options')
             
-            % Allocate size
-            xData = 1:length(times);
-            bidOptionData = zeros(length(times), length(aBot.optionISIN.ISIN));
-            askOptionData = zeros(length(times), length(aBot.optionISIN.ISIN));
-            
-            % Loop through the depth
-            for t = times'
-                tField = t{1};
-                tDouble = str2double(tField(2:end));
-                
-                nOption = aBot.optionISIN.ISIN;
-                % For each time, loop through the ISINs
-                for i = 1:length(nOption)
-                    
-                    iOption = curly(nOption(i),1);
-                    
-                    % If the option exists and has a bid/ask in the depth
-                    % store it
-                    if(isfield(aBot.depth.(tField), iOption))
-                        
-                        if(~isempty(aBot.depth.(tField).(iOption).bidLimitPrice))
-                            bidOptionData(tDouble, i) = aBot.depth.(tField).(iOption).bidLimitPrice(1);
-                        else
-                            bidOptionData(tDouble, i) = NaN;
-                        end
-                        
-                        if(~isempty(aBot.depth.(tField).(iOption).askLimitPrice))
-                            askOptionData(tDouble, i) = aBot.depth.(tField).(iOption).askLimitPrice(1);
-                        else
-                            askOptionData(tDouble, i) = NaN;
-                        end
-                    else
-                        askOptionData(tDouble, i) = NaN;
-                        bidOptionData(tDouble, i) = NaN;
-                    end
-                end
-            end
-            
-            % Plot everything
             figure
-            for i = 1:length(nOption)
-                subplot(4,5,i);
-                scatter(xData, bidOptionData(:,i), 'x');
+            t=1:lastTime;
+            for i=1:optionNumber
+                subplot(4,5,i)
+                scatter(t,transpose(optionIV1(:,i)))
                 hold on
-                scatter(xData, askOptionData(:,i), 'r');
-                title(curly(nOption(i),1));
+                scatter(t,transpose(optionIV2(:,i)))
                 hold off
             end
+            suptitle('The implied volatilities of the options over time for each strike price')
         end
-        
-        %% 5
-        function PlotOptionIV1(aBot)
-            plotTime = 0;
-            N=length(aBot.optionDepth.(aTime).V);
-            optionIV1 =  zeros(N,1);
-            for v = 1:N
-                optionIV1(v)=IV(aBot.depth.(plotTime).stockPrice, ...
-                    aBot.optionDepth.(plotTime).K(v),...
-                    aBot.optionDepth.(plotTime).T(v),...
-                    aBot.optionDepth.(plotTime).V(v),...
-                    aBot.optionDepth.(plotTime).p(v));
-            end
-            plot(aBot,optionDepth.(plotTime).K,optionIV1)
-        end
-        
-        %% 6
-        function PlotOptionIV2(aBot)
-            nTime = fieldnames(aBot.depth);
-            lastTimeString = curly(nTime(end),1);
-            lastTime = str2double(lastTimeString(2:end));
-            
-            optionIV2 = zeros(lastTime,1);
-            
-            for t= 1:lastTime
-                N=length(aBot.optionDepth.(t).K);
-                optionIV2(t) = zeros(1,N);
-                for k=1:N
-                    optionIV2(t,k) = IV(aBot.depth.(t).stockPrice, ...
-                        aBot.optionDepth.(t).K(k),...
-                        aBot.optionDepth.(t).T(k),...
-                        aBot.optionDepth.(t).V(k),...
-                        aBot.optionDepth.(t).p(k));
-                end
-            end
-            
-            for k=1:length(aBot.optionDepth.(0).K)
-                t=1:lastTime;
-                plot(optionIV2(t,k),t)
-                hold on
-            end
-            hold off
-        end
-        
-        %% 7
+
+     
+
         function PlotGreeks(aBot)
+            curly = @(x, varargin) x{varargin{:}};
             nTime = fieldnames(aBot.depth);
             lastTimeString = curly(nTime(end),1);
             lastTime = str2double(lastTimeString(2:end));
@@ -278,14 +196,16 @@ classdef AnalysisRobot < AutoTrader
             optionIV2 = zeros(lastTime,1);
             
             for t= 1:lastTime
-                N=length(aBot.optionDepth.(t).K);
+                timeField = curly(nTime(t),1);
+                N=length(aBot.optionISIN.ISIN);
                 optionIV2(t) = zeros(1,N);
                 for k=1:N
-                    optionIV2(t,k) = IV(aBot.depth.(t).stockPrice, ...
-                        aBot.optionDepth.(t).K(k),...
-                        aBot.optionDepth.(t).T(k),...
-                        aBot.optionDepth.(t).(k),...
-                        aBot.optionDepth.(t).p(k));
+                    optionISINName = aBot.optionISIN.ISIN(k);
+                    optionIV2(t,k) = IV(aBot.depth.(timeField).('ING').stockPrice, ...
+                                        aBot.optionISIN.K(k),...
+                                        aBot.optionISIN.T(k),...
+                                        aBot.depth.(timeField).(optionISINName{1}).optionPrice(k),...
+                                        aBot.optionISIN.p(k));                    
                 end
             end
             
@@ -293,43 +213,43 @@ classdef AnalysisRobot < AutoTrader
             optionGammas = zeros(lastTime,1);
             optionVegas = zeros(lastTime,1);
             for t= 1:lastTime
-                N=length(aBot.optionDepth.(t).K);
+                timeField = curly(nTime(t),1);
                 optionDeltas(t) = zeros(1,N);
                 optionGammas(t) = zeros(1,N);
                 optionVegas(t) = zeros(1,N);
                 for k=1:N
-                    BSM = BS(aBot.depth.(t).stockPrice, ...
-                        aBot.optionDepth.(t).K(k),...
-                        aBot.optionDepth.(t).T(k),...
-                        optionIV2(t,k),...
-                        aBot.optionDepth.(t).p(k));
+                    BSM = BS(aBot.depth.(timeField).('ING').stockPrice, ...
+                            aBot.optionISIN.K(k),...
+                            aBot.optionISIN.T(k),...
+                            optionIV2(t,k),...
+                            aBot.optionISIN.p(k));   
                     optionDeltas(t,k)=BSM(2,1);
                     optionGammas(t,k)=BSM(3,1);
                     optionVegas(t,k)=BSM(4,1);
                 end
             end
             
-            for k=1:length(aBot.optionDepth.(0).K)
-                t=1:lastTime;
-                subplot(3,1,1)
-                plot(optionDeltas(t,k),t)
-                hold on
+            for k=1:N
+               t=1:lastTime;
+               subplot(3,1,1)
+               plot(optionDeltas(t,k),t)
+               hold on
             end
             hold off
             
-            for k=1:length(aBot.optionDepth.(0).K)
-                t=1:lastTime;
-                subplot(3,1,2)
-                plot(optionGammas(t,k),t)
-                hold on
+            for k=1:N
+               t=1:lastTime;
+               subplot(3,1,2)
+               plot(optionGammas(t,k),t)
+               hold on
             end
             hold off
             
-            for k=1:length(aBot.optionDepth.(0).K)
-                t=1:lastTime;
-                subplot(3,1,3)
-                plot(optionVegas(t,k),t)
-                hold on
+            for k=1:N
+               t=1:lastTime;
+               subplot(3,1,3)
+               plot(optionVegas(t,k),t)
+               hold on
             end
             hold off
         end
