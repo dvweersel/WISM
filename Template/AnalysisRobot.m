@@ -83,19 +83,19 @@ classdef AnalysisRobot < AutoTrader
             close all;
             
             %% 1, 2
-%            PlotStock(aBot);
+            PlotStock(aBot);
             
             %% 3
-%            PlotOptionSpread(aBot)
+            PlotOptionSpread(aBot)
             
             %% 4
-%            PlotOptionTime(aBot)
+            PlotOptionTime(aBot)
             
             %% 5
            PlotOptionIVs(aBot);
             
             %% 6 
-%            PlotGreeks(aBot);
+            PlotGreeks(aBot);
         end
         
         %% 1,2 Plot of the bid, ask and stock price
@@ -384,7 +384,7 @@ classdef AnalysisRobot < AutoTrader
             for t= 1:lastTime
                 timeField = curly(nTime(t),1);
                 for k=1:optionNumber
-                    if (isfield(aBot.depth.(timeField),aBot.optionISIN.ISIN(k)) && ~isnan(optionIV1))
+                    if (isfield(aBot.depth.(timeField),aBot.optionISIN.ISIN(k)) && ~isnan(optionIV1(t,k)))
                         BSM = BS(aBot.depth.(timeField).('ING').stockPrice, ...
                                  aBot.optionISIN.K(k),...
                                  aBot.optionISIN.T(k),...
@@ -393,6 +393,10 @@ classdef AnalysisRobot < AutoTrader
                         optionAskDeltas(t,k)=BSM(2,1);
                         optionAskGammas(t,k)=BSM(3,1);
                         optionAskVegas(t,k)=BSM(4,1);
+                    else
+                        optionAskDeltas(t,k)=NaN;
+                        optionAskGammas(t,k)=NaN;
+                        optionAskVegas(t,k)=NaN;
                     end
                 end
             end
@@ -400,7 +404,7 @@ classdef AnalysisRobot < AutoTrader
             for t= 1:lastTime
                 timeField = curly(nTime(t),1);
                 for k=1:optionNumber
-                    if (isfield(aBot.depth.(timeField),aBot.optionISIN.ISIN(k)) && ~isnan(optionIV2))
+                    if (isfield(aBot.depth.(timeField),aBot.optionISIN.ISIN(k)) && ~isnan(optionIV2(t,k)))
                         BSM = BS(aBot.depth.(timeField).('ING').stockPrice, ...
                                  aBot.optionISIN.K(k),...
                                  aBot.optionISIN.T(k),...
@@ -409,6 +413,10 @@ classdef AnalysisRobot < AutoTrader
                         optionBidDeltas(t,k)=BSM(2,1);
                         optionBidGammas(t,k)=BSM(3,1);
                         optionBidVegas(t,k)=BSM(4,1);
+                    else
+                        optionBidDeltas(t,k)=NaN;
+                        optionBidGammas(t,k)=NaN;
+                        optionBidVegas(t,k)=NaN;
                     end
                 end
             end
@@ -417,18 +425,38 @@ classdef AnalysisRobot < AutoTrader
             %time for each strike price
             figure
             t=1:lastTime;
-            for i=1:optionNumber
-                subplot(4,5,i)
-                scatter(t,optionAskDeltas(:,i),'r')
-                hold on
-                scatter(t,optionAskGammas(:,i),'b')
-                scatter(t,optionAskVegas(:,i),'g')
-                scatter(t,optionBidDeltas(:,i),'y')
-                scatter(t,optionBidGammas(:,i),'m')
-                scatter(t,optionBidVegas(:,i),'k')
-                hold off
-            end
-            suptitle('The greeks of the options over time for each strike price')
+            optionNumber = 5;
+            subplot(3,1,1)
+            scatter(t,optionAskDeltas(:,optionNumber),'r')
+            hold on
+            scatter(t,optionBidDeltas(:,optionNumber),'b')
+            hold off
+            
+            title('The deltas of the options with this optionNumber')
+            xlabel('time')
+            ylabel('deltas')
+            
+            subplot(3,1,2)
+            scatter(t,optionAskGammas(:,optionNumber),'g')
+            hold on
+            scatter(t,optionBidGammas(:,optionNumber),'y')
+            hold off
+            
+            title('The gammas of the options with this optionNumber')
+            xlabel('time')
+            ylabel('gammas')
+            
+            subplot(3,1,3)
+            scatter(t,optionAskVegas(:,optionNumber),'m')
+            hold on
+            scatter(t,optionBidVegas(:,optionNumber),'k')
+            hold off
+            
+            title('The vegas of the options with this optionNumber')
+            xlabel('time')
+            ylabel('vegas')
+            
+            suptitle('The greeks of the options over time')
         end
     end
 end
