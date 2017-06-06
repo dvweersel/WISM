@@ -18,12 +18,14 @@ function sigma = IV(S, K, T, V, p)
     k = max(lengths);
 
     %   If one of the arguments is constant extend it
-    if isscalar(S); S = S*ones(1,k); end
-    if isscalar(K); K = K*ones(1,k); end
-    if isscalar(T); T = T*ones(1,k); end
-    if isscalar(V); V = V*ones(1,k); end
-    if isscalar(p); p = p*ones(1,k); end
-
+    if(k > 1)
+        if isscalar(S); S = S*ones(1,k); end
+        if isscalar(K); K = K*ones(1,k); end
+        if isscalar(T); T = T*ones(1,k); end
+        if isscalar(V); V = V*ones(1,k); end
+        if isscalar(p); p = p*ones(1,k); end
+    end
+    
     %   Eq (21)
     pi = [-0.969271876255; 0.097428338274; 1.750081126685];
 
@@ -83,10 +85,13 @@ function sigma = IV(S, K, T, V, p)
     C = C'; C = C(:,ones(1,14)); % Repmat to [k x 14]
 
     % Rational Function; Eq (19)
-    fcnv = @(pi,m,n,i,j,d,C)(pi(1).*d(:,1) + pi(2).*sqrt(C(:,1)) + pi(3).*C(:,1) + (sum(n.*((d.^i).*(sqrt(C).^j)), 2))./(1 + sum(m.*((d.^i).*(sqrt(C).^j)), 2)));
+    fcnv = @(pi,m,n,i,j,d,C)(pi(1).*d(:,1) + pi(2).*sqrt(C(:,1)) + pi(3).*C(:,1)...
+        + (sum(n.*((d.^i).*(sqrt(C).^j)), 2))./(1 + sum(m.*((d.^i).*(sqrt(C).^j)), 2)));
     v1 = fcnv(pi,m,n,i,j,d,C); % D- Domain (d<=-1)
     v2 = fcnv(pi,m,n,i,j,-d,exp(d).*C + 1 -exp(d)); % Reflection for D+ Domain (d>1)
-    v = zeros(k,1); v(d(:,1)<=0)=v1(d(:,1)<=0); v(d(:,1)>0)=v2(d(:,1)>0);
+    v = zeros(k,1); 
+    v(d(:,1)<=0)=v1(d(:,1)<=0);
+    v(d(:,1)>0)=v2(d(:,1)>0);
 
     % Domain-of-Approximation is d={-0.5,+0.5},v={0,1},d/v={-2,2}
     domainFilter = d(:,1)>=-0.5 & d(:,1)<=0.5 & v > 0 & v <1 & (d(:,1)./v)<=2 & (d(:,1)./v)>=-2;
@@ -125,6 +130,7 @@ function sigma = IV(S, K, T, V, p)
     
     %   Initial error
     B = true(size(V(:))); 
+
     err = difffcn(sigma,B); 
     
     %   Convergence Matrix
