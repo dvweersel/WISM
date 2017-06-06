@@ -77,7 +77,7 @@ function sigma = IV(S, K, T, V, p)
     d = log(S./K); 
     
     % Convert Put to Call by Parity Relation; Eq (9)
-    V(p==1) = V(p==1) + S(p==1) - K(p==1);
+    V(p==0) = V(p==0) + S(p==0) - K(p==0);
     
     C = V./S; % Normalized Call Price
 
@@ -89,10 +89,17 @@ function sigma = IV(S, K, T, V, p)
         + (sum(n.*((d.^i).*(sqrt(C).^j)), 2))./(1 + sum(m.*((d.^i).*(sqrt(C).^j)), 2)));
     v1 = fcnv(pi,m,n,i,j,d,C); % D- Domain (d<=-1)
     v2 = fcnv(pi,m,n,i,j,-d,exp(d).*C + 1 -exp(d)); % Reflection for D+ Domain (d>1)
+<<<<<<< HEAD
     v = zeros(k,1);
     v(d(:,1)<=0)=v2(d(:,1)<=0);
     v(d(:,1)>0)=v1(d(:,1)>0);
     
+=======
+    v = zeros(k,1); 
+    v(d(:,1)<=0)=v1(d(:,1)<=0);
+    v(d(:,1)>0)=v2(d(:,1)>0);
+
+>>>>>>> 52574a84fde6ec6576824425648bb23c7438f4be
     % Domain-of-Approximation is d={-0.5,+0.5},v={0,1},d/v={-2,2}
     domainFilter = d(:,1)>=-0.5 & d(:,1)<=0.5 & v > 0 & v <1 & (d(:,1)./v)<=2 & (d(:,1)./v)>=-2;
     v(~domainFilter) = NaN;
