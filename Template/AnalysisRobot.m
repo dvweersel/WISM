@@ -37,24 +37,6 @@ classdef AnalysisRobot < AutoTrader
             if(strcmp(ISIN,'ING'))                
                 CalculateStockPrice(aBot);
             end
-            
-            aBot.depth.(aTime).('ING').optionPrice = zeros(length(aBot.optionISIN.ISIN),2);
-            
-            ISINNames= fieldnames(aBot.depth.(aTime));
-            for i=1:length(ISINNames)
-                ISINName=ISINNames(i);
-                for k=1:length(aBot.optionISIN.ISIN)
-                    optionISINName = aBot.optionISIN.ISIN(k);
-                    if strcmp(aBot.depth.(aTime).(ISINName{1}).ISIN,optionISINName{1})
-                        if ~isempty(aBot.depth.(aTime).(ISINName{1}).askLimitPrice)
-                            aBot.depth.(aTime).('ING').optionPrice(k,1) = aBot.depth.(aTime).(ISINName{1}).askLimitPrice;
-                        end
-                        if ~isempty(aBot.depth.(aTime).(ISINName{1}).bidLimitPrice)
-                            aBot.depth.(aTime).('ING').optionPrice(k,2) = aBot.depth.(aTime).(ISINName{1}).bidLimitPrice;
-                        end
-                    end
-                end
-            end
         end
         
         %% Calculates the stock price
@@ -74,7 +56,7 @@ classdef AnalysisRobot < AutoTrader
             end
             
             aBot.depth.(aTime).ING.stockPrice = ...
-                StockPrice(askLimitPrice, bidLimitPrice);
+                Average(askLimitPrice, bidLimitPrice);
         end
         
         %% Shows some plots
@@ -131,7 +113,7 @@ classdef AnalysisRobot < AutoTrader
                     askData(t) = NaN;
                 end
                 
-                stockPriceData(t) = StockPrice(bidData(t),askData(t));
+                stockPriceData(t) = Average(bidData(t),askData(t));
             end
             
             % Plot everything
@@ -267,65 +249,76 @@ classdef AnalysisRobot < AutoTrader
             
             optionNumber=length(aBot.optionISIN.ISIN);
             
-            %the time of the plots
+            %the time of the plot
             plotTime = 101;
-            optionIV1 = zeros(lastTime,optionNumber);
-            optionIV2 = zeros(lastTime,optionNumber);
             
-            %calculate the implied volatilities of all the asks of the options
+            %all the names of the option ISINs
+            ISINNames = aBot.optionISIN.ISIN;
+                        
+            %calculate the implied volatilities of all asks and bids of the options and add the average of them
+            %to the depth
             for t=1:lastTime
                 timeField = curly(nTime(t),1);
                 for k=1:optionNumber
-                    if (isfield(aBot.depth.(timeField),aBot.optionISIN.ISIN(k)) && aBot.depth.(timeField).('ING').optionPrice(k,1) ~= 0)
-                        optionIV1(t,k)=IV(aBot.depth.(timeField).('ING').stockPrice, ...
+                    ISINName=ISINNames(k);
+                    if isfield(aBot.depth.(timeField),aBot.optionISIN.ISIN(k))
+                        if ~isempty(aBot.depth.(timeField).(ISINName{1}).askLimitPrice)
+                        optionIV1 = IV(aBot.depth.(timeField).('ING').stockPrice, ...
                                           aBot.optionISIN.K(k),...
                                           aBot.optionISIN.T(k),...
-                                          aBot.depth.(timeField).('ING').optionPrice(k,1),...
+                                          aBot.depth.(timeField).(ISINName{1}).askLimitPrice,...
                                           aBot.optionISIN.p(k));
+                        end
                     else
-                        optionIV1(t,k)=NaN;
+                        optionIV1 = NaN;
                     end
+                    
+                    if isfield(aBot.depth.(timeField),aBot.optionISIN.ISIN(k))
+                        if ~isempty(aBot.depth.(timeField).(ISINName{1}).bidLimitPrice)
+                        optionIV2 = IV(aBot.depth.(timeField).('ING').stockPrice, ...
+                                          aBot.optionISIN.K(k),...
+                                          aBot.optionISIN.T(k),...
+                                          aBot.depth.(timeField).(ISINName{1}).bidLimitPrice,...
+                                          aBot.optionISIN.p(k));
+                        end
+                    else
+                        optionIV2 = NaN;
+                    end
+                    
+                    aBot.depth.(timeField).(ISINName{1}).IV = Average(optionIV1,optionIV2);
                 end
             end
             
-            %calculate the implied volatilities of the bids of the options
-            for t=1:lastTime
-                timeField = curly(nTime(t),1);
-                for k=1:optionNumber
-                    if (isfield(aBot.depth.(timeField),aBot.optionISIN.ISIN(k)) && aBot.depth.(timeField).('ING').optionPrice(k,2) ~= 0)
-                        optionIV2(t,k)=IV(aBot.depth.(timeField).('ING').stockPrice, ...
-                                          aBot.optionISIN.K(k),...
-                                          aBot.optionISIN.T(k),...
-                                          aBot.depth.(timeField).('ING').optionPrice(k,2),...
-                                          aBot.optionISIN.p(k));
-                    else
-                        optionIV2(t,k)=NaN;
-                    end
-                end
+            %plot the implied volatilities of all options at the plotTime
+            plotTimeField = curly(nTime(plotTime),1);
+            plotIV = zeros(1,optionNumber);
+            for k=1:optionNumber
+                ISINName = ISINNames(k);
+                plotIV(1,k) = aBot.depth.(plotTimeField).(ISINName{1}).IV;
             end
-            
-            %plot the implied volatilities of the asks and bids of all
-            %options at the plotTime
             figure
-            scatter(aBot.optionISIN.K,optionIV1(plotTime,:))
-            hold on
-            scatter(aBot.optionISIN.K,optionIV2(plotTime,:))
-            hold off
-
+            scatter(aBot.optionISIN.K,plotIV)
+            
+            
             title('The implied volatilities of the options at the plotTime')
             xlabel('Strike prices of options')
             ylabel('Implied volatilities of options')
             
-            %plot the implied volatilities of the asks and bids over time
+            %plot the implied volatilities of the options over time
             %for each strike price
             figure
-            t=1:lastTime;
             for i=1:optionNumber
+                ISINName=ISINNames(i);
                 subplot(4,5,i)
-                scatter(t,optionIV1(:,i))
-                hold on
-                scatter(t,optionIV2(:,i))
-                hold off
+                plotIV = zeros(1,lastTime);
+                for t=1:lastTime
+                    timeField = curly(nTime(t),1);
+                    plotIV(1,t) = aBot.depth.(timeField).(ISINName{1}).IV;
+                end
+                t=1:lastTime;
+                scatter(t,plotIV)
+                
+                title(aBot.optionISIN.ISIN(i))
             end
             suptitle('The implied volatilities of the options over time for each strike price')
         end
@@ -339,118 +332,70 @@ classdef AnalysisRobot < AutoTrader
             
             optionNumber=length(aBot.optionISIN.ISIN);
  
-            optionIV1 = zeros(lastTime,optionNumber);
-            optionIV2 = zeros(lastTime,optionNumber);
+            %all the names of the option ISINs
+            ISINNames = aBot.optionISIN.ISIN;
             
-            %calculate the implied volatilities of all the asks of the options
-            for t=1:lastTime
-                timeField = curly(nTime(t),1);
-                for k=1:optionNumber
-                    if (isfield(aBot.depth.(timeField),aBot.optionISIN.ISIN(k)) && aBot.depth.(timeField).('ING').optionPrice(k,1) ~= 0)
-                        optionIV1(t,k)=IV(aBot.depth.(timeField).('ING').stockPrice, ...
-                                          aBot.optionISIN.K(k),...
-                                          aBot.optionISIN.T(k),...
-                                          aBot.depth.(timeField).('ING').optionPrice(k,1),...
-                                          aBot.optionISIN.p(k));
-                    else
-                        optionIV1(t,k)=NaN;
-                    end
-                end
-            end
-            
-            %calculate the implied volatilities of all the bids of the options
-            for t=1:lastTime
-                timeField = curly(nTime(t),1);
-                for k=1:optionNumber
-                    if (isfield(aBot.depth.(timeField),aBot.optionISIN.ISIN(k)) && aBot.depth.(timeField).('ING').optionPrice(k,2) ~= 0)
-                        optionIV2(t,k)=IV(aBot.depth.(timeField).('ING').stockPrice, ...
-                                          aBot.optionISIN.K(k),...
-                                          aBot.optionISIN.T(k),...
-                                          aBot.depth.(timeField).('ING').optionPrice(k,2),...
-                                          aBot.optionISIN.p(k));
-                    else
-                        optionIV2(t,k)=NaN;
-                    end
-                end
-            end
-            
-            optionAskDeltas = zeros(lastTime,optionNumber);
-            optionAskGammas = zeros(lastTime,optionNumber);
-            optionAskVegas = zeros(lastTime,optionNumber);
-            optionBidDeltas = zeros(lastTime,optionNumber);
-            optionBidGammas = zeros(lastTime,optionNumber);
-            optionBidVegas = zeros(lastTime,optionNumber);
-            %calculate the deltas, gammas and vegas of the asks and bids
+            %calculate the deltas, gammas and vegas of the options by using BS.m
             for t= 1:lastTime
                 timeField = curly(nTime(t),1);
                 for k=1:optionNumber
-                    if (isfield(aBot.depth.(timeField),aBot.optionISIN.ISIN(k)) && ~isnan(optionIV1(t,k)))
+                    ISINName = ISINNames(k);
+                    if (isfield(aBot.depth.(timeField),aBot.optionISIN.ISIN(k)) && ~isnan(aBot.depth.(timeField).(ISINName{1}).IV))
                         BSM = BS(aBot.depth.(timeField).('ING').stockPrice, ...
                                  aBot.optionISIN.K(k),...
                                  aBot.optionISIN.T(k),...
-                                 optionIV1(t,k),...
+                                 aBot.depth.(timeField).(ISINName{1}).IV,...
                                  aBot.optionISIN.p(k));   
-                        optionAskDeltas(t,k)=BSM(2,1);
-                        optionAskGammas(t,k)=BSM(3,1);
-                        optionAskVegas(t,k)=BSM(4,1);
+                        aBot.depth.(timeField).(ISINName{1}).Delta = BSM(2,1);
+                        aBot.depth.(timeField).(ISINName{1}).Gamma = BSM(3,1);
+                        aBot.depth.(timeField).(ISINName{1}).Vega  = BSM(4,1);
                     else
-                        optionAskDeltas(t,k)=NaN;
-                        optionAskGammas(t,k)=NaN;
-                        optionAskVegas(t,k)=NaN;
+                        aBot.depth.(timeField).(ISINName{1}).Delta = NaN;
+                        aBot.depth.(timeField).(ISINName{1}).Gamma = NaN;
+                        aBot.depth.(timeField).(ISINName{1}).Vega  = NaN;
                     end
                 end
             end
             
-            for t= 1:lastTime
-                timeField = curly(nTime(t),1);
-                for k=1:optionNumber
-                    if (isfield(aBot.depth.(timeField),aBot.optionISIN.ISIN(k)) && ~isnan(optionIV2(t,k)))
-                        BSM = BS(aBot.depth.(timeField).('ING').stockPrice, ...
-                                 aBot.optionISIN.K(k),...
-                                 aBot.optionISIN.T(k),...
-                                 optionIV2(t,k),...
-                                 aBot.optionISIN.p(k));   
-                        optionBidDeltas(t,k)=BSM(2,1);
-                        optionBidGammas(t,k)=BSM(3,1);
-                        optionBidVegas(t,k)=BSM(4,1);
-                    else
-                        optionBidDeltas(t,k)=NaN;
-                        optionBidGammas(t,k)=NaN;
-                        optionBidVegas(t,k)=NaN;
-                    end
-                end
-            end
-            
-            %plot the deltas, gammas and vegas of the asks and bids over
-            %time for each strike price
+            %plot the deltas, gammas and vegas of the options over
+            %time for a certain strike price
             figure
-            t=1:lastTime;
-            optionNumber = 5;
+            optionNumber = 4;
+            ISINName = ISINNames(optionNumber);
             subplot(3,1,1)
-            scatter(t,optionAskDeltas(:,optionNumber),'r')
-            hold on
-            scatter(t,optionBidDeltas(:,optionNumber),'b')
-            hold off
+            plotIV1 = zeros(1,lastTime);
+            for t=1:lastTime
+                timeField = curly(nTime(t),1);
+                plotIV1(1,t) = aBot.depth.(timeField).(ISINName{1}).Delta;
+            end
+            t=1:lastTime;
+            scatter(t,plotIV1)
             
             title('The deltas of the options with this optionNumber')
             xlabel('time')
             ylabel('deltas')
             
             subplot(3,1,2)
-            scatter(t,optionAskGammas(:,optionNumber),'g')
-            hold on
-            scatter(t,optionBidGammas(:,optionNumber),'y')
-            hold off
+            plotIV2 = zeros(1,lastTime);
+            for t=1:lastTime
+                timeField = curly(nTime(t),1);
+                plotIV2(1,t) = aBot.depth.(timeField).(ISINName{1}).Gamma;
+            end
+            t=1:lastTime;
+            scatter(t,plotIV2)
             
             title('The gammas of the options with this optionNumber')
             xlabel('time')
             ylabel('gammas')
             
             subplot(3,1,3)
-            scatter(t,optionAskVegas(:,optionNumber),'m')
-            hold on
-            scatter(t,optionBidVegas(:,optionNumber),'k')
-            hold off
+            plotIV3 = zeros(1,lastTime);
+            for t=1:lastTime
+                timeField = curly(nTime(t),1);
+                plotIV3(1,t) = aBot.depth.(timeField).(ISINName{1}).Vega;
+            end
+            t=1:lastTime;
+            scatter(t,plotIV3)
             
             title('The vegas of the options with this optionNumber')
             xlabel('time')
