@@ -1,5 +1,5 @@
 function A = Average(aAskPrices, aBidPrices)
-    %   Returns the stock price    
+    %   Returns the average price    
 
     SKEW = 0;
     
