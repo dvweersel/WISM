@@ -100,7 +100,6 @@ function sigma = IV(S, K, T, V, p)
     sigma = v'./sqrt(T); % v = sigma.*(sqrt(T));
    
     %% OUT-OF-DOMAIN VALUES
-
     if any(~domainFilter(:) & ~isnan(V(:))) % any out-of-Li domain values
         
         Y = sigma(:);
@@ -121,9 +120,9 @@ function sigma = IV(S, K, T, V, p)
     ultimafcn = @(sig,B)(-S(B).*fcnn(d1fcn(sig,B)).*(sqrt(T(B))).*(d1fcn(sig,B).*d2fcn(sig,B).*(1-d1fcn(sig,B).*d2fcn(sig,B))+d1fcn(sig,B).^2+d2fcn(sig,B).^2)./(sig(B).^2));
 
     %   Accepted error
-    tolerance=1e-12;
+    tolerance=1e-8;
     %   Amount of iterations
-    kmax = 10; 
+    kmax = 50; 
 
     %   Difference between our answer and BS
     difffcn = @(sig,B)(V(B) - callfcn(sig,B));
@@ -145,13 +144,13 @@ function sigma = IV(S, K, T, V, p)
         ultima = ultimafcn(sigma,B); %f'''(x_n)
 
         % Newton Raphson Method x_n+1 = x_n + f(x_n)/f'(x_n)
-        % sigma = sigma  + (err(B)./vega) ;
+        % sigma(B) = sigma(B)  + (err(B)./vega) ;
        
         % Halley Method x_n+1 = x_n - f(x_n)/( f'(x_n) - f(x_n)*f''(x_n)/2*f'(x_n))
-        %sigma = sigma  - err(B)./(-vega-(-err(B).*vomma./(-2.*vega)));
+        sigma(B) = sigma(B)  - err(B)./(-vega-(-err(B).*vomma./(-2.*vega)));
 
         % Householder Method x_n+1 = x_n - f(x_n)/( f'(x_n) - f(x_n)*f''(x_n)/2*f'(x_n))
-        sigma(B) = sigma(B) - (6.*err(B).*vega.^2 + 3.*err(B).^2.*vomma)./(-6.*vega.^3 - 6.*err(B).*vega.*vomma - err(B).^2.*ultima);
+        %sigma(B) = sigma(B) - (6.*err(B).*vega.^2 + 3.*err(B).^2.*vomma)./(-6.*vega.^3 - 6.*err(B).*vega.*vomma - err(B).^2.*ultima);
 
         % Update Error
         err(B) = difffcn(sigma,B); 
