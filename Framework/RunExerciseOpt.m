@@ -27,6 +27,6 @@ myAnalysisRobot.StartAutoTrader(myExchange);
 myFeedPublisher.StartVeryShortFeed(myFeed);
 myTradingRobot.Unwind();
 
-myAnalysisRobot.ShowPlots();
+% myAnalysisRobot.ShowPlots();
 
 Report(myTradingRobot.ownTrades, 10);
