@@ -1,55 +1,51 @@
 function W = BS(S, K, T, sigma, p)
     n=length(S);
-        
-    %We create variables so that we can differentiate later with these
-    %variables to get things like the delta and gamma.
-    %here s=stock price variable, k= strike price variable, t=expiry time
-    %variable, o=volatility variable. 
-    syms s k t o;    
     
-    %calculating the bounds of the integrals as a function of s,k,t and o.     
-    d1= 1/(o*t^(0.5))*(log(s/k) + 0.5*o^2*t);
-    d2= 1/(o*t^(0.5))*(log(s/k) - 0.5*o^2*t);
-    
-    %creating the formulas for the price, delta and gamma by a call option
-    I1= NormalDistcdf(d1);
-    I2= NormalDistcdf(d2);
-    price1 = s*I1-k*I2;
-    delta1 = diff(price1,s);
-    gamma1 = diff(delta1,s);
-    
-    %creating the formulas for the price, delta and gamma by a put option
-    I3= NormalDistcdf(-d2);
-    I4= NormalDistcdf(-d1);
-    price2 = k*I3 - s*I4;       
-    delta2 = diff(price2,s);
-    gamma2 = diff(delta2,s);
-    
-    V=zeros(1,n);
-    D=zeros(1,n);
-    G=zeros(1,n);
-    %Now we substitute our values in the formulas
+    d1=zeros(1,n);
+    d2=zeros(1,n);
+    prices=zeros(1,n);
+    deltas=zeros(1,n);
+    gammas=zeros(1,n);
+    vegas=zeros(1,n);
+    I1=zeros(1,n);
+    I2=zeros(1,n);
     for i=1:n
+        %calculating the bounds of the integrals as a function of s,k,t and o.     
+        d1(1,i) = 1./(sigma(1,i).*sqrt(T(1,i))).*(log(S(1,i)./K(1,i)) + 0.5.*sigma(1,i).^2.*T(1,i));
+        d2(1,i) = d1(1,i) - sigma(1,i).*sqrt(T(1,i));
+        
+        %calculating the cdfs with the bounds d1 and d2
+        I1(1,i) = NDcdf(d1(1,i));
+        I2(1,i) = NDcdf(d2(1,i));
+        I3(1,i) = NDcdf(-d2(1,i));
+        I4(1,i) = NDcdf(-d1(1,i));
+    
+        %calculating the prices, deltas, gammas and vegas of the options    
         if p(1,i)==0
-            V(1,i)=subs(price1, [s k t o], [S(1,i), K(1,i), T(1,i) sigma(1,i)]);
-            D(1,i)=subs(delta1, [s k t o], [S(1,i), K(1,i), T(1,i) sigma(1,i)]);
-            G(1,i)=subs(gamma1, [s k t o], [S(1,i), K(1,i), T(1,i) sigma(1,i)]);
+            prices(1,i) = S(1,i).*I1(1,i) - K(1,i).*I2(1,i);
+            deltas(1,i) = I1(1,i);
+            
         elseif p(1,i)==1
-            V(1,i)=subs(price2, [s k t o], [S(1,i), K(1,i), T(1,i) sigma(1,i)]);
-            D(1,i)=subs(delta2, [s k t o], [S(1,i), K(1,i), T(1,i) sigma(1,i)]);
-            G(1,i)=subs(gamma2, [s k t o], [S(1,i), K(1,i), T(1,i) sigma(1,i)]);
+            prices(1,i) = K(1,i).*I3(1,i) - S(1,i).*I4(1,i);
+            deltas(1,i) = -I4(1,i);
         end
+        gammas(1,i) = NDpdf(d1(1,i))./(S(1,i).*sigma(1,i).*sqrt(T(1,i)));
+        vegas(1,i)  = NDpdf(d1(1,i)).*S(1,i).*sqrt(T(1,i));
     end
-    W=zeros(3,n);
-    W(1,:)=V(1,:);
-    W(2,:)=D(1,:);
-    W(3,:)=G(1,:);
+    
+    W=zeros(4,n);
+    W(1,:)=prices(1,:);
+    W(2,:)=deltas(1,:);
+    W(3,:)=gammas(1,:);
+    W(4,:)=vegas(1,:);
 end
 
-%this function is used to get the integrals of the density function of the
+%this functions are used to get the cdf en pdf of the
 %standard normal distribution. 
-function I=NormalDistcdf(d)
-    syms x
-    f=(2*pi)^(-1/2)*exp(-0.5*x^2);
-    I = int(f,x,-inf,d);
+function I = NDcdf(x)
+    I = 0.5*(1.+erf(x./sqrt(2)));
+end
+
+function P = NDpdf(x)
+    P = exp(-0.5*x.^2)./sqrt(2*pi);
 end

@@ -18,12 +18,14 @@ function sigma = IV(S, K, T, V, p)
     k = max(lengths);
 
     %   If one of the arguments is constant extend it
-    if isscalar(S); S = S*ones(1,k); end
-    if isscalar(K); K = K*ones(1,k); end
-    if isscalar(T); T = T*ones(1,k); end
-    if isscalar(V); V = V*ones(1,k); end
-    if isscalar(p); p = p*ones(1,k); end
-
+    if(k > 1)
+        if isscalar(S); S = S*ones(1,k); end
+        if isscalar(K); K = K*ones(1,k); end
+        if isscalar(T); T = T*ones(1,k); end
+        if isscalar(V); V = V*ones(1,k); end
+        if isscalar(p); p = p*ones(1,k); end
+    end
+    
     %   Eq (21)
     pi = [-0.969271876255; 0.097428338274; 1.750081126685];
 
@@ -75,7 +77,7 @@ function sigma = IV(S, K, T, V, p)
     d = log(S./K); 
     
     % Convert Put to Call by Parity Relation; Eq (9)
-    V(p==0) = V(p==0) + S(p==0) - K(p==0);
+    V(p==1) = V(p==1) + S(p==1) - K(p==1);
     
     C = V./S; % Normalized Call Price
 
@@ -83,11 +85,14 @@ function sigma = IV(S, K, T, V, p)
     C = C'; C = C(:,ones(1,14)); % Repmat to [k x 14]
 
     % Rational Function; Eq (19)
-    fcnv = @(pi,m,n,i,j,d,C)(pi(1).*d(:,1) + pi(2).*sqrt(C(:,1)) + pi(3).*C(:,1) + (sum(n.*((d.^i).*(sqrt(C).^j)), 2))./(1 + sum(m.*((d.^i).*(sqrt(C).^j)), 2)));
+    fcnv = @(pi,m,n,i,j,d,C)(pi(1).*d(:,1) + pi(2).*sqrt(C(:,1)) + pi(3).*C(:,1)...
+        + (sum(n.*((d.^i).*(sqrt(C).^j)), 2))./(1 + sum(m.*((d.^i).*(sqrt(C).^j)), 2)));
     v1 = fcnv(pi,m,n,i,j,d,C); % D- Domain (d<=-1)
     v2 = fcnv(pi,m,n,i,j,-d,exp(d).*C + 1 -exp(d)); % Reflection for D+ Domain (d>1)
-    v = zeros(k,1); v(d(:,1)<=0)=v1(d(:,1)<=0); v(d(:,1)>0)=v2(d(:,1)>0);
-
+    v = zeros(k,1);
+    v(d(:,1)<=0)=v2(d(:,1)<=0);
+    v(d(:,1)>0)=v1(d(:,1)>0);
+    
     % Domain-of-Approximation is d={-0.5,+0.5},v={0,1},d/v={-2,2}
     domainFilter = d(:,1)>=-0.5 & d(:,1)<=0.5 & v > 0 & v <1 & (d(:,1)./v)<=2 & (d(:,1)./v)>=-2;
     v(~domainFilter) = NaN;
@@ -95,7 +100,6 @@ function sigma = IV(S, K, T, V, p)
     sigma = v'./sqrt(T); % v = sigma.*(sqrt(T));
    
     %% OUT-OF-DOMAIN VALUES
-
     if any(~domainFilter(:) & ~isnan(V(:))) % any out-of-Li domain values
         
         Y = sigma(:);
@@ -116,15 +120,16 @@ function sigma = IV(S, K, T, V, p)
     ultimafcn = @(sig,B)(-S(B).*fcnn(d1fcn(sig,B)).*(sqrt(T(B))).*(d1fcn(sig,B).*d2fcn(sig,B).*(1-d1fcn(sig,B).*d2fcn(sig,B))+d1fcn(sig,B).^2+d2fcn(sig,B).^2)./(sig(B).^2));
 
     %   Accepted error
-    tolerance=1e-12;
+    tolerance=1e-8;
     %   Amount of iterations
-    kmax = 10; 
+    kmax = 50; 
 
     %   Difference between our answer and BS
     difffcn = @(sig,B)(V(B) - callfcn(sig,B));
     
     %   Initial error
     B = true(size(V(:))); 
+
     err = difffcn(sigma,B); 
     
     %   Convergence Matrix
@@ -139,13 +144,13 @@ function sigma = IV(S, K, T, V, p)
         ultima = ultimafcn(sigma,B); %f'''(x_n)
 
         % Newton Raphson Method x_n+1 = x_n + f(x_n)/f'(x_n)
-        % sigma = sigma  + (err(B)./vega) ;
+        % sigma(B) = sigma(B)  + (err(B)./vega) ;
        
         % Halley Method x_n+1 = x_n - f(x_n)/( f'(x_n) - f(x_n)*f''(x_n)/2*f'(x_n))
-        %sigma = sigma  - err(B)./(-vega-(-err(B).*vomma./(-2.*vega)));
+        sigma(B) = sigma(B)  - err(B)./(-vega-(-err(B).*vomma./(-2.*vega)));
 
         % Householder Method x_n+1 = x_n - f(x_n)/( f'(x_n) - f(x_n)*f''(x_n)/2*f'(x_n))
-        sigma(B) = sigma(B) - (6.*err(B).*vega.^2 + 3.*err(B).^2.*vomma)./(-6.*vega.^3 - 6.*err(B).*vega.*vomma - err(B).^2.*ultima);
+        %sigma(B) = sigma(B) - (6.*err(B).*vega.^2 + 3.*err(B).^2.*vomma)./(-6.*vega.^3 - 6.*err(B).*vega.*vomma - err(B).^2.*ultima);
 
         % Update Error
         err(B) = difffcn(sigma,B); 
