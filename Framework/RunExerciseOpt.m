@@ -29,4 +29,4 @@ myTradingRobot.Unwind();
 
 % myAnalysisRobot.ShowPlots();
 
-Report(myTradingRobot.ownTrades, 10);
+ReportPlots(myTradingRobot.ownTrades);

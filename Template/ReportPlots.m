@@ -125,5 +125,20 @@ function ReportPlots(aTrades)
     
     %Combining the two matrices to get a totalcash position
     CASH = myINGCash(end) + sum(myINGOptionCash(:,end));
-    display(CASH)   
+    display(CASH);
+    
+    fileID= fopen('report.txt','wt');
+    einde = length(aTrades.price);
+    fprintf(fileID,'%19s %8s %10s %10s\r\n','ISIN','POSITION','VALUE','TOTAL');
+    fprintf(fileID,'%19s %8.0f %10s %10s\r\n','ING',myINGPosition(einde),'Final','TOTAL');
+    for i=1:20
+        myOptionName = nOption(i);
+        myOptPos = myINGOptionPositions(i,einde);
+        myOptVal = myINGOptionCash(i,einde);
+        fprintf(fileID,'%19s %8.0f %10.0f %10.0f\r\n',myOptionName{1},myOptPos,myOptVal,myOptPos*myOptVal);
+    end
+    fprintf(fileID,'%19s %8.0f %10s %10s\r\n','Payments',CASH,'Value','VALUE');
+    fprintf(fileID,'%19s %8s %10s %10s\r\n','Delta','DELTA','Gamma','GAMMA');
+    fclose(fileID);
+    type report.txt
 end
