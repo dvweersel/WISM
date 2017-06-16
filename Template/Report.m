@@ -42,6 +42,7 @@ function Report(aTrades, aSpot)
         end
     end
     
+    aTrades.optionInfo = struct('ISIN',boughtOptions,'p',[],'v',[]);
 %     We loop through the entire struct
 %     for i=1:length(aTrades.price)
 %         
