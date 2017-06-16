@@ -189,8 +189,7 @@ classdef AnalysisRobot < AutoTrader
                 end
                 
                 stockPriceData(t) = Average(bidData(t),askData(t));
-            end
-            
+            end  
             % Plot everything
             figure;
             subplot(2, 1, 1), plot(xData, bidData, 'b');
@@ -314,6 +313,9 @@ classdef AnalysisRobot < AutoTrader
                 hold off
             end
         end
+        %Dit is een test om te kijken of pushen werkt.
+       % function PlotOptionTime(aBot)
+          
         
         %% 5        
         function PlotOptionIVs(aBot)
@@ -459,6 +461,7 @@ classdef AnalysisRobot < AutoTrader
             ylabel('vegas')
             
             suptitle('The greeks of the options over time')
+
         end
     end
 end
