@@ -24,7 +24,7 @@ function Report(aTrades, aSpot)
 %         end
 %     end
 %     
-    %We make a list of all the sort options we bought
+    %We make a list of all the options we bought
     boughtOptions = {aTrades.ISIN{1}};
     for i=1:length(aTrades.ISIN)
         anOption = aTrades.ISIN(i);
