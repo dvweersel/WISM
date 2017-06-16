@@ -1,4 +1,4 @@
-function Report(aTrades,aSpot)
+function ReportPlots(aTrades)
     % @struct aTrades   price: The price of the stock
     %                   volume: The volume of the stock
     %                   ISIN: The identification string
@@ -81,25 +81,47 @@ function Report(aTrades,aSpot)
     end
     subplot(2,3,1)
     plot(myINGPosition)
+    title('Position of stock')
+    xlabel('time')
+    ylabel('position')
+    
     subplot(2,3,2)
     for k=1:20
         plot(myINGOptionPositions(k,:))
         hold on
     end
     hold off
+    title('Positions of options')
+    xlabel('time')
+    ylabel('position')
+    
     subplot(2,3,3)
     plot(myPositionSum)
+    title('Total position')
+    xlabel('time')
+    ylabel('position')
     
     subplot(2,3,4)
     plot(myINGCash)
+    title('Cash position of the stock')
+    xlabel('time')
+    ylabel('cash position')
+    
     subplot(2,3,5)
     for k=1:20
         plot(myINGOptionCash(k,:))
         hold on
     end
     hold off
+    title('Cash position of the options')
+    xlabel('time')
+    ylabel('cash position')
+    
     subplot(2,3,6)
     plot(myCashSum)
+    title('Total cash position')
+    xlabel('time')
+    ylabel('cash position')
     
     %Combining the two matrices to get a totalcash position
     CASH = myINGCash(end) + sum(myINGOptionCash(:,end));
