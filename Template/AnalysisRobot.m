@@ -319,27 +319,37 @@ classdef AnalysisRobot < AutoTrader
         
         %% 5        
         function PlotOptionIVs(aBot)
-            curly = @(x, varargin) x{varargin{:}};
             nTime = fieldnames(aBot.depth);
             lastTimeString = curly(nTime(end),1);
             lastTime = str2double(lastTimeString(2:end));
             
             optionNumber=length(aBot.optionISIN.ISIN);
             
-            %the time of the plot
-            plotTime = 101;
+            % We store the time with the largest amount of options
+            k = 0;
+            kField = 0;
+            for t = nTime'
+                
+                tField = t{1};
+                numberOfOptions = length(fieldnames(aBot.depth.(tField)));
+                
+                if(numberOfOptions > k)
+                    
+                    k = numberOfOptions;
+                    kField = tField;
+                end
+            end
             
             %all the names of the option ISINs
             ISINNames = aBot.optionISIN.ISIN;
     
             %plot the implied volatilities of all options at the plotTime
-            plotTimeField = curly(nTime(plotTime),1);
             plotIV = zeros(1,optionNumber);
             for k=1:optionNumber
                 ISINName = ISINNames(k);
-                if isfield(aBot.depth.(plotTimeField),aBot.optionISIN.ISIN(k))
-                    if isfield(aBot.depth.(plotTimeField).(ISINName{1}),'IV')
-                        plotIV(1,k) = aBot.depth.(plotTimeField).(ISINName{1}).IV;
+                if isfield(aBot.depth.(kField),aBot.optionISIN.ISIN(k))
+                    if isfield(aBot.depth.(kField).(ISINName{1}),'IV')
+                        plotIV(1,k) = aBot.depth.(kField).(ISINName{1}).IV;
                     else
                         plotIV(1,k) = NaN;
                     end
@@ -360,7 +370,7 @@ classdef AnalysisRobot < AutoTrader
             figure
             for k=1:optionNumber
                 ISINName=ISINNames(k);
-                subplot(4,5,k)
+                %subplot(4,5,k)
                 plotIV = zeros(1,lastTime);
                 for t=1:lastTime
                     timeField = curly(nTime(t),1);
@@ -376,15 +386,15 @@ classdef AnalysisRobot < AutoTrader
                 end
                 t=1:lastTime;
                 scatter(t,plotIV)
-                
+                hold on
                 title(aBot.optionISIN.ISIN(k))
             end
             suptitle('The implied volatilities of the options over time for each strike price')
+            hold off
         end
         
         %% 6
         function PlotGreeks(aBot)
-            curly = @(x, varargin) x{varargin{:}};
             nTime = fieldnames(aBot.depth);
             lastTimeString = curly(nTime(end),1);
             lastTime = str2double(lastTimeString(2:end));
