@@ -98,10 +98,12 @@ function Report(aTrades,aSpot)
                 myINGPosition(end) = myINGPosition(end) + 1 * aTrades.volume(i);
                 myINGOptionPositions(m,end) = myINGPosition(m,end) - 1 * aTrades.volume(i);
                 myINGCash(end) = myINGPosition(end) - 1 * aTrades.volume(i) * optionISIN.K(m);
+                myINGOptionCash(end) = myINGOptionCash(end) + 1 * aTrades.volume(i) * (aSpot - optionISIN.K(m));
             elseif optionISIN.p(m) == 1 && optionISIN.K(m) > aSpot
                 myINGPosition(end) = myINGPosition(end) - 1 * aTrades.volume(i);
                 myINGOptionPositions(m,end) = myINGPosition(m,end) + 1 * aTrades.volume(i);
                 myINGCash(end) = myINGPosition(end) + 1 * aTrades.volume(i) * optionISIN.K(m);
+                myINGOptionCash(end) = myINGOptionCash(end) - 1 * aTrades.volume(i) * (optionISIN.K(m) - aSpot);
             end
         end
     end
