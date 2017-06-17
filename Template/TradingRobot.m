@@ -53,7 +53,9 @@ classdef TradingRobot < AutoTrader
             
             if(aBot.time > 1)
                 TryArbitrage(aBot);
-                Hedge(aBot);
+                if(mod(aBot.time,5) == 0)
+                    Hedge(aBot);
+                end
             end
         end
         
