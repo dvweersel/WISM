@@ -1,5 +1,5 @@
                ISIN POSITION      VALUE      TOTAL
-                ING        0      Final      TOTAL
+                ING        0      10.00       0.00
  ING20170915CALL800        0       2.00       0.00
   ING20170915PUT800        0      -2.00      -0.00
  ING20170915CALL900        0       1.00       0.00
