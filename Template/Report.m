@@ -81,7 +81,7 @@ function Report(aTrades,aSpot)
         end
     end
     
-   %at the end we exercise the options that make profit
+    %at the end we exercise the options that make profit
     for i=length(aTrades.price)
         if not(strcmp(aTrades.ISIN(i), 'ING'))
             for k=1:20
@@ -96,13 +96,13 @@ function Report(aTrades,aSpot)
             % contractsize == 1, so we have that 1 volume option equals 1 volume stock
             if optionISIN.p(m) == 0 && optionISIN.K(m) < aSpot
                 myINGPosition(end) = myINGPosition(end) + 1 * aTrades.volume(i);
-                myINGOptionPositions(m,end) = myINGPosition(m,end) - 1 * aTrades.volume(i);
-                myINGCash(end) = myINGPosition(end) - 1 * aTrades.volume(i) * optionISIN.K(m);
+                myINGOptionPositions(m,end) = myINGOptionPositions(m,end) - 1 * aTrades.volume(i);
+                myINGCash(end) = myINGCash(end) - 1 * aTrades.volume(i) * optionISIN.K(m);
                 myINGOptionCash(end) = myINGOptionCash(end) + 1 * aTrades.volume(i) * (aSpot - optionISIN.K(m));
             elseif optionISIN.p(m) == 1 && optionISIN.K(m) > aSpot
                 myINGPosition(end) = myINGPosition(end) - 1 * aTrades.volume(i);
-                myINGOptionPositions(m,end) = myINGPosition(m,end) + 1 * aTrades.volume(i);
-                myINGCash(end) = myINGPosition(end) + 1 * aTrades.volume(i) * optionISIN.K(m);
+                myINGOptionPositions(m,end) = myINGOptionPositions(m,end) + 1 * aTrades.volume(i);
+                myINGCash(end) = myINGCash(end) + 1 * aTrades.volume(i) * optionISIN.K(m);
                 myINGOptionCash(end) = myINGOptionCash(end) - 1 * aTrades.volume(i) * (optionISIN.K(m) - aSpot);
             end
         end
@@ -113,58 +113,59 @@ function Report(aTrades,aSpot)
         myPositionSum(i+1) = myINGPosition(i+1) + sum(myINGOptionPositions(:,i+1));
     end
     
-    subplot(2,3,1)
-    plot(myINGPosition)
-    title('Position of stock')
-    xlabel('time')
-    ylabel('position')
+%     subplot(2,3,1)
+%     plot(myINGPosition)
+%     title('Position of stock')
+%     xlabel('time')
+%     ylabel('position')
+%     
+%     subplot(2,3,2)
+%     for k=1:20
+%         plot(myINGOptionPositions(k,:))
+%         hold on
+%     end
+%     hold off
+%     title('Positions of options')
+%     xlabel('time')
+%     ylabel('position')
+%     
+%     subplot(2,3,3)
+%     plot(myPositionSum)
+%     title('Total position')
+%     xlabel('time')
+%     ylabel('position')
+%     
+%     subplot(2,3,4)
+%     plot(myINGCash)
+%     title('Cash position of the stock')
+%     xlabel('time')
+%     ylabel('cash position')
+%     
+%     subplot(2,3,5)
+%     for k=1:20
+%         plot(myINGOptionCash(k,:))
+%         hold on
+%     end
+%     hold off
+%     title('Cash position of the options')
+%     xlabel('time')
+%     ylabel('cash position')
+%     
+%     subplot(2,3,6)
+%     plot(myCashSum)
+%     title('Total cash position')
+%     xlabel('time')
+%     ylabel('cash position')
     
-    subplot(2,3,2)
-    for k=1:20
-        plot(myINGOptionPositions(k,:))
-        hold on
-    end
-    hold off
-    title('Positions of options')
-    xlabel('time')
-    ylabel('position')
-    
-    subplot(2,3,3)
-    plot(myPositionSum)
-    title('Total position')
-    xlabel('time')
-    ylabel('position')
-    
-    subplot(2,3,4)
-    plot(myINGCash)
-    title('Cash position of the stock')
-    xlabel('time')
-    ylabel('cash position')
-    
-    subplot(2,3,5)
-    for k=1:20
-        plot(myINGOptionCash(k,:))
-        hold on
-    end
-    hold off
-    title('Cash position of the options')
-    xlabel('time')
-    ylabel('cash position')
-    
-    subplot(2,3,6)
-    plot(myCashSum)
-    title('Total cash position')
-    xlabel('time')
-    ylabel('cash position')
-    
-    %Combining the two matrices to get a totalcash position
+    %The cash is the end position of the cash of the ING stock
     CASH = myINGCash(end); 
     
     %Write out the results
     fileID= fopen('report.txt','wt');
+    %all strike values of the options
     myValues = [8,-8,9,-9,9.5,-9.5,9.75,-9.75,10,-10,10.25,-10.25,10.5,-10.5,11,-11,12,-12,14,-14];
     fprintf(fileID,'%19s %8s %10s %10s\r\n','ISIN','POSITION','VALUE','TOTAL');
-    fprintf(fileID,'%19s %8.0f %10s %10s\r\n','ING',myINGPosition(end),aSpot,aSpot*myINGPosition(end));
+    fprintf(fileID,'%19s %8.0f %10.2f %10.2f\r\n','ING',myINGPosition(end),aSpot,aSpot*myINGPosition(end));
     %Loop through all the options
     for i=1:20
         myOptionName = nOption(i);
@@ -176,8 +177,8 @@ function Report(aTrades,aSpot)
         end
         fprintf(fileID,'%19s %8.0f %10.2f %10.2f\r\n',myOptionName{1},myOptPos,myOptVal,myOptPos*myOptVal);
     end
-    fprintf(fileID,'%19s %8.0f %10s %10s\r\n','Payments',sum(myINGOptionCash(:,end)),...
-                'Value', myINGPosition(end)*aSpot + CASH + sum(myINGOptionCash(:,end)));
+    fprintf(fileID,'%19s %8.0f %10s %10.2f\r\n','Payments',sum(myINGOptionCash(:,end)),...
+                'Value', myINGPosition(end)*aSpot + CASH);
     fprintf(fileID,'%19s %8s %10s %10s\r\n','Delta','DELTA','Gamma','GAMMA');
     fclose(fileID);
     type report.txt
