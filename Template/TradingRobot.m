@@ -8,11 +8,8 @@ classdef TradingRobot < AutoTrader
         portfolio = zeros(21, 3)
         delta = []
         gamma = []
-<<<<<<< HEAD
         TradeDeltas = []
         TradeGammas = []
-=======
->>>>>>> 865c4b95723c427fefb2e33b98b34fa095f70e49
         
         % How many updates we use for the historical volatility
         N = 30;
@@ -60,7 +57,6 @@ classdef TradingRobot < AutoTrader
                 TryArbitrage(aBot);
                 if(mod(aBot.time,5) == 0)
                     Hedge(aBot);
-<<<<<<< HEAD
                 end
             end
         end
@@ -172,170 +168,6 @@ classdef TradingRobot < AutoTrader
                         n = i;
                         break;
                     end
-=======
->>>>>>> 865c4b95723c427fefb2e33b98b34fa095f70e49
-                end
-            end
-        end
-        
-        %% Try to arbitrage
-        function TryArbitrage(aBot)
-            ALPHA = 0.05;
-            
-            % We look at the previous depth.
-            aTime = strcat('t', num2str(aBot.time - 1));
-            
-<<<<<<< HEAD
-            % Add it to the portfolio
-            aBot.portfolio(n, 1) = aBot.portfolio(n, 1) + myVolume*side;
-        end
-        
-        %% Hedge
-        function Hedge(aBot)
-            aTime = strcat('t', num2str(aBot.time));
-            
-            % Calculate portfolio delta and gamma
-            for i=1:length(aBot.optionISIN.ISIN)
-                if(aBot.portfolio(i, 1) ~= 0)
-                    
-                    [~, T, p, K] = ParseOptionISINs(aBot.optionISIN.ISIN(i));
-                    
-                    T = (T - now())/aBot.DAYS_IN_YEARS;
-                    
-                    S = aBot.depth.(aTime).ING.stockPrice;
-                    IV = aBot.depth.(aTime).ING.IV;
-                    BSM = BS(S, K, T, IV, p);
-                    
-                    aBot.portfolio(i, 2) = floor(aBot.portfolio(i, 1) * BSM(2, 1));
-                    aBot.portfolio(i, 3) = floor(aBot.portfolio(i, 1) * BSM(3, 1));
-                end
-            end
-            
-            % If we have anything to hedge
-            if sum(aBot.portfolio(:, 1)) > 0
-                aBot.gamma = sum(aBot.portfolio(:, 3));
-                aBot.delta = sum(aBot.portfolio(:, 2));
-                
-                % For options, we look at the last book
-                lastTime = strcat('t', num2str(aBot.time - 1));
-                
-                % Look at the put-call pairs and try to hedge gamma
-                if(aBot.gamma ~= 0)
-                    for i=2:length(aBot.optionISIN.ISIN)/2
-                        putISIN = aBot.optionISIN.ISIN(2*i);
-                        callISIN = aBot.optionISIN.ISIN(2*i-1);
-                        
-                        % If the put-call pair exists in the depth...
-                        if(isfield(aBot.depth.(lastTime), callISIN{1})...
-                                && isfield(aBot.depth.(lastTime), putISIN{1})...
-                                && aBot.portfolio(2*i, 3) + aBot.portfolio(2*i - 1, 3) ~= 0)
-                            
-                            callGamma = aBot.depth.(lastTime).(callISIN{1}).Gamma;
-                            putGamma = aBot.depth.(lastTime).(putISIN{1}).Gamma;
-                            
-                            % We sell the option with the lowest gamma
-                            if(aBot.portfolio(2*i - 1, 3) < aBot.portfolio(2*i, 3) ...
-                                    && isfield(aBot.depth.(lastTime), callISIN{1}))
-                                if ~isempty(aBot.depth.(lastTime).(callISIN{1}).bidLimitPrice)
-                                    
-                                    myBidPrice = aBot.depth.(lastTime).(callISIN{1}).bidLimitPrice(1);
-                                    myVolume = min(aBot.depth.(lastTime).(callISIN{1}).bidVolume(1), floor(abs(putGamma*aBot.portfolio(2*i,1))));
-                                    
-                                    aBot.SendNewOrder(myBidPrice, myVolume, -1, callISIN, {'IMMEDIATE'}, 0);
-                                    
-                                    % Update the portfolio
-                                    deltaOption = aBot.depth.(lastTime).(callISIN{1}).Delta;
-                                    
-                                    aBot.portfolio(2*i-1, 1) = aBot.portfolio(2*i-1, 1) - myVolume;
-                                    aBot.portfolio(2*i-1, 2) = aBot.portfolio(2*i-1, 2) - aBot.portfolio(2*i-1, 1)*deltaOption;
-                                end
-                            elseif(isfield(aBot.depth.(lastTime), putISIN{1}))
-                                if ~isempty(aBot.depth.(lastTime).(putISIN{1}).bidLimitPrice)
-                                    
-                                    myBidPrice = aBot.depth.(lastTime).(putISIN{1}).bidLimitPrice(1);
-                                    myVolume = min(aBot.depth.(lastTime).(putISIN{1}).bidVolume(1), floor(abs(callGamma*aBot.portfolio(2*i-1,1))));
-                                    
-                                    aBot.SendNewOrder(myBidPrice, myVolume, -1, putISIN, {'IMMEDIATE'}, 0);
-                                    
-                                    % Update the portfolio, puts have
-                                    % inverted delta
-                                    deltaOption = aBot.depth.(lastTime).(putISIN{1}).Delta;
-                                    aBot.portfolio(2, 1) = aBot.portfolio(2, 1) - myVolume;
-                                    aBot.portfolio(2, 2) = aBot.portfolio(2, 2) + aBot.portfolio(2-1, 1)*deltaOption;
-                                end
-                            end
-                        end
-=======
-            options = fieldnames(aBot.depth.(aTime));
-            
-            % Calculate mean of all the option
-            if length(options) > 1
-                meanIV = 0;
-                n = 0;
-                
-                for f = options'
-                    if not(strcmp(f{1}, 'ING')) && ~isnan(aBot.depth.(aTime).(f{1}).IV)
-                        meanIV = meanIV + aBot.depth.(aTime).(f{1}).IV;
-                        n = n + 1;
-                    end
-                end
-                
-                meanIV = meanIV/n;
-                
-                % Buy options signicantly under/above the historical mean of the stock
-                % with a reasonable delta
-                for i=1:length(aBot.optionISIN.ISIN)
-                    ISIN = aBot.optionISIN.ISIN(i);
-                    
-                    if isfield(aBot.depth.(aTime), ISIN{1})
-                        if ~isnan(aBot.depth.(aTime).(ISIN{1}).IV)
-                            if(aBot.depth.(aTime).(ISIN{1}).IV < meanIV* (1-ALPHA)...
-                                    && aBot.depth.(aTime).(ISIN{1}).Delta > 0.1)
-                                TradeListing(aBot, ISIN{1}, 1);
-                            elseif(aBot.depth.(aTime).(ISIN{1}).IV > meanIV*(1+ALPHA)...
-                                    && aBot.depth.(aTime).(ISIN{1}).Delta > 0.1)
-                                TradeListing(aBot, ISIN{1}, -1);
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        
-        %% Hedge one last time
-        function Unwind(aBot)
-            
-            Hedge(aBot);
-        end
-        
-        %% function to send the orders
-        function TradeListing(aBot, ISIN, side)
-            aTime = strcat('t', num2str(aBot.time - 1));
-            
-            myVolume = 0;
-            
-            if(isfield(aBot.depth.(aTime), ISIN))
-                if(side == 1 && ~isempty(aBot.depth.(aTime).(ISIN).askLimitPrice))
-                    myAskPrice = aBot.depth.(aTime).(ISIN).askLimitPrice(1);
-                    myVolume = aBot.depth.(aTime).(ISIN).askVolume(1);
-                    
-                    aBot.SendNewOrder(myAskPrice, myVolume, 1, {ISIN}, {'IMMEDIATE'}, 0);
-                elseif(~isempty(aBot.depth.(aTime).(ISIN).bidLimitPrice))
-                    myBidPrice = aBot.depth.(aTime).(ISIN).bidLimitPrice(1);
-                    myVolume = aBot.depth.(aTime).(ISIN).bidVolume(1);
-                    
-                    aBot.SendNewOrder(myBidPrice, myVolume, -1, {ISIN}, {'IMMEDIATE'}, 0);
-                end
-            end
-            
-            % The position of ISIN in optionISIN (1 - 20)
-            if(~strcmp(ISIN,'ING'))
-                for i=1:length(aBot.optionISIN.ISIN)
-                    cell = aBot.optionISIN.ISIN(i);
-                    if(strcmp(cell{1}, ISIN))
-                        n = i;
-                        break;
-                    end
                 end
             end
             
@@ -418,7 +250,6 @@ classdef TradingRobot < AutoTrader
                                 end
                             end
                         end
->>>>>>> 865c4b95723c427fefb2e33b98b34fa095f70e49
                         
                     end
                 end
@@ -574,11 +405,8 @@ classdef TradingRobot < AutoTrader
             vegas=zeros(1,n);
             I1=zeros(1,n);
             I2=zeros(1,n);
-<<<<<<< HEAD
             I3=zeros(1,n);
             I4=zeros(1,n);
-=======
->>>>>>> 865c4b95723c427fefb2e33b98b34fa095f70e49
             for i=1:n
                 %calculating the bounds of the integrals as a function of s,k,t and o.
                 d1(1,i) = 1./(sigma(1,i).*sqrt(T(1,i))).*(log(S(1,i)./K(1,i)) + 0.5.*sigma(1,i).^2.*T(1,i));
