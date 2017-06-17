@@ -3,7 +3,7 @@ clear myFeedPublisher;
 clear myOptionsQuoter;
 clear myTradingRobot;
 
-load('ING2.mat');
+load('ING1.mat');
 
 myExchange = CreateExchangeOpt();
 
@@ -16,17 +16,22 @@ myExchange.RegisterAutoTrader(myOptionsQuoter);
 myOptionsQuoter.StartAutoTrader(myExchange, myFeedPublisher);
 
 myTradingRobot = TradingRobot();
-myAnalysisRobot = AnalysisRobot();
+%myAnalysisRobot = AnalysisRobot();
 
 myExchange.RegisterAutoTrader(myTradingRobot);
-myExchange.RegisterAutoTrader(myAnalysisRobot);
+%myExchange.RegisterAutoTrader(myAnalysisRobot);
 
 myTradingRobot.StartAutoTrader(myExchange);
-myAnalysisRobot.StartAutoTrader(myExchange);
+%myAnalysisRobot.StartAutoTrader(myExchange);
 
 myFeedPublisher.StartVeryShortFeed(myFeed);
 myTradingRobot.Unwind();
+%myAnalysisRobot.ShowPlots();
 
-% myAnalysisRobot.ShowPlots();
+curly = @(x, varargin) x{varargin{:}};
+nTime = fieldnames(myTradingRobot.depth);
+lastTime = curly(nTime(end),1);
 
 ReportPlots(myTradingRobot.ownTrades);
+Report(myTradingRobot.ownTrades, myTradingRobot.depth.(lastTime).ING.stockPrice);
+%ReportPlots(myTradingRobot.ownTrades);

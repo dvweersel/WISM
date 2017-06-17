@@ -4,8 +4,11 @@ classdef TradingRobotMean < AutoTrader
         optionISIN = struct
         time = 0
         
-        % Amount - Delta (last one is stock)
-        portfolio = zeros(21, 2)
+        % Amount - Delta - Gamma
+        portfolio = zeros(21, 3)
+        
+        MIN = 20;
+        MAX = 30;
     end
     
     methods
@@ -28,11 +31,6 @@ classdef TradingRobotMean < AutoTrader
             
             % Update time if its a stock depth update
             if(strcmp(ISIN,'ING'))
-                if(aBot.time ~= 0)
-                    TryArbitrage(aBot);
-                    % Hedge
-                    %aBot.Hedge();
-                end
                 aBot.time = aBot.time + 1;
             end
             aTime = strcat('t', num2str(aBot.time));
@@ -44,16 +42,24 @@ classdef TradingRobotMean < AutoTrader
             if(strcmp(ISIN,'ING'))
                 CalculateStockPrice(aBot);
                 CalculateStockVolatility(aBot);
-            else % And the Greeks/IV if it's an option
+            % And the Greeks/IV if it's an option
+            else 
                 CalculateIV(aBot,ISIN);
                 CalculateGreeks(aBot,ISIN);
+            end
+            
+            if(aBot.time > aBot.MIN)
+                TryArbitrage(aBot);
+                Hedge(aBot);
             end
         end
         
         %% Try to arbitrage
         function TryArbitrage(aBot)
+            ALPHA = 0.1;
             
-            aTime = strcat('t', num2str(aBot.time));
+            % We look at the previous depth. 
+            aTime = strcat('t', num2str(aBot.time - 1));
             
             % Calculate mean
             options = fieldnames(aBot.depth.(aTime));
@@ -69,40 +75,65 @@ classdef TradingRobotMean < AutoTrader
                     end
                 end
                 
-                meanIV = meanIV/n;
-                
-                aBot.depth.(aTime).ING.IV = meanIV;
+               meanIV = meanIV/n;
                 
                 % Buy options under mean
                 for f = options'
                     if not(strcmp(f{1}, 'ING')) && ~isnan(aBot.depth.(aTime).(f{1}).IV)
-                        if(aBot.depth.(aTime).(f{1}).IV < meanIV)
+                        if(aBot.depth.(aTime).(f{1}).IV < meanIV* (1-ALPHA))
                             TradeBestListing(aBot, f{1}, 1);
+                        elseif(aBot.depth.(aTime).(f{1}).IV > meanIV*(1+ALPHA))
+                            TradeBestListing(aBot, f{1}, -1);
                         end
                     end
                 end
             end
         end
         
-        %% Function used to get the positions at 0 again
+        %% Function used to get the position at 0 again
         function Unwind(aBot)
             
+            times = fieldnames(aBot.depth);
+            lastTime = times(end);
+            stockPrice = aBot.depth.(lastTime{1}).ING.stockPrice;
+            
+            % Stock - call + put = 0
+            position = aBot.portfolio(21, 1);
+            
+            for i=1:length(aBot.optionISIN.ISIN)
+                
+                [~, ~, ~, strikePrice] = ParseOptionISINs(aBot.optionISIN.ISIN(i));
+                
+                if aBot.optionISIN.p(i) == 0 && strikePrice < stockPrice 
+                    position = position + aBot.portfolio(i, 1);
+                elseif strikePrice > stockPrice 
+                    position = position - aBot.portfolio(i, 1);
+                end
+            end
+            
+            if position > 0
+               debug = 0; 
+            end
         end
         
         %% function to send the orders
         function TradeBestListing(aBot, ISIN, side)
-            aTime = strcat('t', num2str(aBot.time));
+            aTime = strcat('t', num2str(aBot.time - 1));
             
-            if(side == 1)
-                myAskPrice = aBot.depth.(aTime).(ISIN).askLimitPrice(1);
-                myVolume = aBot.depth.(aTime).(ISIN).askVolume(1);            
-                
-                aBot.SendNewOrder(myAskPrice, myVolume, 1, {ISIN}, {'IMMEDIATE'}, 0);
-            else
-                myBidPrice = aBot.depth.(aTime).(ISIN).bidLimitPrice(1);
-                myVolume = aBot.depth.(aTime).(ISIN).bidVolume(1);
-                
-                aBot.SendNewOrder(myBidPrice, myVolume, -1, {ISIN}, {'IMMEDIATE'}, 0);
+            myVolume = 0;
+            
+            if(isfield(aBot.depth.(aTime), ISIN))
+                if(side == 1 && ~isempty(aBot.depth.(aTime).(ISIN).askLimitPrice))
+                    myAskPrice = aBot.depth.(aTime).(ISIN).askLimitPrice(1);
+                    myVolume = aBot.depth.(aTime).(ISIN).askVolume(1);            
+
+                    aBot.SendNewOrder(myAskPrice, myVolume, 1, {ISIN}, {'IMMEDIATE'}, 0);
+                elseif(~isempty(aBot.depth.(aTime).(ISIN).bidLimitPrice))
+                    myBidPrice = aBot.depth.(aTime).(ISIN).bidLimitPrice(1);
+                    myVolume = aBot.depth.(aTime).(ISIN).bidVolume(1);
+
+                    aBot.SendNewOrder(myBidPrice, myVolume, -1, {ISIN}, {'IMMEDIATE'}, 0);
+                end
             end
 
             % The position of ISIN in optionISIN (1 - 21)
@@ -122,18 +153,42 @@ classdef TradingRobotMean < AutoTrader
         %% Hedge using stocks
         function Hedge(aBot)
             aTime = strcat('t', num2str(aBot.time));
-            
-            % Stock has delta 1
-            aBot.portfolio(21,2) = aBot.portfolio(21, 1);
-    
+          
             for i=1:length(aBot.optionISIN.ISIN)
+                if(aBot.portfolio(i, 1) ~= 0)
+                    S = aBot.depth.(aTime).ING.stockPrice;
+                    K = aBot.optionISIN.K(i);
+                    T = aBot.optionISIN.T(i);
+                    IV = aBot.depth.(aTime).ING.IV;
+                    p = aBot.optionISIN.p(i);
+                    BSM = BS(S, K, T, IV, p);
+                    
+                    aBot.portfolio(i, 2) = floor(aBot.portfolio(i, 1) * BSM(2, 1));
+                    aBot.portfolio(i, 3) = floor(aBot.portfolio(i, 1) * BSM(3, 1));
+                end
+            end
+            
+            if sum(aBot.portfolio(:, 1)) > 0
+                delta = floor(sum(aBot.portfolio(:, 2)));
                 
-                BSM = BS(aBot.depth.(aTime).ING.stockPrice, ...
-                    aBot.optionISIN.K(i),...
-                    aBot.optionISIN.T(i),...
-                    aBot.depth.(aTime).ING.IV,...
-                    aBot.optionISIN.p(n));
-                portfolio(i, 2) = portfolio(i, 1) * BSM(2, 1);
+                if(delta ~= 0)
+                    if(delta < 0 && ~isempty(aBot.depth.(aTime).ING.askLimitPrice))
+                        myAskPrice = aBot.depth.(aTime).ING.askLimitPrice(1);
+                        myVolume = min(aBot.depth.(aTime).ING.askVolume(1),abs(delta));            
+
+                        aBot.SendNewOrder(myAskPrice, myVolume, 1, {'ING'}, {'IMMEDIATE'}, 0);    
+                        aBot.portfolio(21, 1) = aBot.portfolio(21, 1) + myVolume;
+                    elseif(~isempty(aBot.depth.(aTime).ING.bidLimitPrice))
+                        myBidPrice = aBot.depth.(aTime).ING.bidLimitPrice(1);
+                        myVolume = min(aBot.depth.(aTime).ING.bidVolume(1),delta);
+
+                        aBot.SendNewOrder(myBidPrice, myVolume, -1, {'ING'}, {'IMMEDIATE'}, 0);
+                        aBot.portfolio(21, 1) = aBot.portfolio(21, 1) - myVolume;
+                    end
+                    
+                    % Delta of stock is 1
+                    aBot.portfolio(21, 2) = aBot.portfolio(21, 1);
+                end
             end
         end
         
@@ -159,11 +214,9 @@ classdef TradingRobotMean < AutoTrader
         
          %% Calculates the stock price
         function CalculateStockVolatility(aBot)
-            MIN = 5;
-            MAX = 20;
             
-            n = min(length(fieldnames(aBot.depth)) - 1, MAX);
-            if(n > MIN)
+            n = min(length(fieldnames(aBot.depth)) - 1, aBot.MAX);
+            if(n > aBot.MIN)
                 
                 priceArray = zeros(n,1);
 
@@ -176,7 +229,15 @@ classdef TradingRobotMean < AutoTrader
                 end
                 
                 aTime = strcat('t', num2str(aBot.time));
-                aBot.depth.(aTime).ING.IV = std(priceArray');
+                
+                percentageArray = zeros(length(priceArray),1);
+                
+                for i=2:length(priceArray)
+                    percentageArray(i) = (priceArray(i) - priceArray(i-1))/priceArray(i)*100;
+                end
+                
+                aBot.depth.(aTime).ING(1).IV = std(percentageArray);
+                
             end
         end
         

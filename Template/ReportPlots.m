@@ -1,4 +1,4 @@
-function ReportPlots(aTrades)
+function ReportPlots(aTrades,aSpotPrice)
     % @struct aTrades   price: The price of the stock
     %                   volume: The volume of the stock
     %                   ISIN: The identification string
@@ -126,6 +126,7 @@ function ReportPlots(aTrades)
     %Combining the two matrices to get a totalcash position
     CASH = myINGCash(end) + sum(myINGOptionCash(:,end));
     display(CASH);
+   
     
     fileID= fopen('report.txt','wt');
     einde = length(aTrades.price);
@@ -136,6 +137,22 @@ function ReportPlots(aTrades)
         myOptPos = myINGOptionPositions(i,einde);
         myOptVal = myINGOptionCash(i,einde);
         fprintf(fileID,'%19s %8.0f %10.0f %10.0f\r\n',myOptionName{1},myOptPos,myOptVal,myOptPos*myOptVal);
+    %Write out the results
+    fileID= fopen('report.txt','wt');
+    einde = length(aTrades.price);
+    myValues = [8,-8,9,-9,9.5,-9.5,9.75,-9.75,10,-10,10.25,-10.25,10.5,-10.5,11,-11,12,-12,14,-14];
+    fprintf(fileID,'%19s %8s %10s %10s\r\n','ISIN','POSITION','VALUE','TOTAL');
+    fprintf(fileID,'%19s %8.0f %10s %10s\r\n','ING',myINGPosition(einde),'Final','TOTAL');
+    %Loop through all the options
+    for i=1:20
+        myOptionName = nOption(i);
+        myOptPos = myINGOptionPositions(i,einde);
+        if(mod(i,2)==1)
+            myOptVal = aSpotPrice - myValues(i);
+        else
+            myOptVal = -myValues(i)-aSpotPrice;
+        end
+        fprintf(fileID,'%19s %8.0f %10.2f %10.2f\r\n',myOptionName{1},myOptPos,myOptVal,myOptPos*myOptVal);
     end
     fprintf(fileID,'%19s %8.0f %10s %10s\r\n','Payments',CASH,'Value','VALUE');
     fprintf(fileID,'%19s %8s %10s %10s\r\n','Delta','DELTA','Gamma','GAMMA');
